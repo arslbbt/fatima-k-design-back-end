@@ -12,21 +12,165 @@ enum Role {
   BRIDE
 }
 
-model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  role      Role     @default(BRIDE)
-  createdAt DateTime @default(now())
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
 
-  brideProfile BrideProfile?
+enum AppointmentTitle {
+  CONSULTATION
+  FITTING
+  FINAL_PICKUP
+}
+
+enum PaymentType {
+  DEPOSIT
+  INSTALLMENT
+  FINAL
+}
+
+enum PaymentStatus {
+  PAID
+  PENDING
+}
+
+enum NotificationType {
+  APPOINTMENT
+  PAYMENT
+  PHOTO
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role     @default(BRIDE)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  brideProfile  BrideProfile?
+  appointments  Appointment[]
+  fittings      Fitting[]
+  inspoUploads  InspoUpload[]
+  favorites     Favorite[]
+  payments      Payment[]
+  notifications Notification[]
+
+  @@map("users")
 }
 
 model BrideProfile {
-  id          String   @id @default(uuid())
-  userId      String   @unique
-  weddingDate DateTime?
-  notes       String?
+  id               String    @id @default(uuid())
+  userId           String    @unique @map("user_id")
+  weddingDate      DateTime? @map("wedding_date")
+  phone            String?
+  stylePreferences String?   @map("style_preferences")
+  notes            String?
+  createdAt        DateTime  @default(now()) @map("created_at")
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("bride_profiles")
+}
+
+model Appointment {
+  id          String            @id @default(uuid())
+  brideId     String            @map("bride_id")
+  title       AppointmentTitle
+  description String?
+  location    String?
+  startTime   DateTime          @map("start_time")
+  endTime     DateTime          @map("end_time")
+  whatToBring String?           @map("what_to_bring")
+  status      AppointmentStatus @default(SCHEDULED)
+  createdBy   String            @map("created_by")
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  bride    User      @relation(fields: [brideId], references: [id], onDelete: Cascade)
+  fittings Fitting[]
+
+  @@map("appointments")
+}
+
+model Fitting {
+  id            String   @id @default(uuid())
+  brideId       String   @map("bride_id")
+  appointmentId String?  @map("appointment_id")
+  fittingNumber Int      @map("fitting_number")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  bride       User         @relation(fields: [brideId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  photos      FittingPhoto[]
+
+  @@map("fittings")
+}
+
+model FittingPhoto {
+  id         String   @id @default(uuid())
+  fittingId  String   @map("fitting_id")
+  imageUrl   String   @map("image_url")
+  caption    String?
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  fitting Fitting @relation(fields: [fittingId], references: [id], onDelete: Cascade)
+
+  @@map("fitting_photos")
+}
+
+model InspoUpload {
+  id         String   @id @default(uuid())
+  brideId    String   @map("bride_id")
+  imageUrl   String   @map("image_url")
+  caption    String?
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  bride User @relation(fields: [brideId], references: [id], onDelete: Cascade)
+
+  @@map("inspo_uploads")
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  brideId   String   @map("bride_id")
+  title     String
+  imageUrl  String   @map("image_url")
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  bride User @relation(fields: [brideId], references: [id], onDelete: Cascade)
+
+  @@map("favorites")
+}
+
+model Payment {
+  id          String        @id @default(uuid())
+  brideId     String        @map("bride_id")
+  amount      Decimal       @db.Decimal(10, 2)
+  paymentType PaymentType   @map("payment_type")
+  status      PaymentStatus @default(PENDING)
+  dueDate     DateTime?     @map("due_date")
+  paidDate    DateTime?     @map("paid_date")
+  notes       String?
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  bride User @relation(fields: [brideId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  brideId   String           @map("bride_id")
+  type      NotificationType
+  message   String
+  isRead    Boolean          @default(false) @map("is_read")
+  sentAt    DateTime         @default(now()) @map("sent_at")
+
+  bride User @relation(fields: [brideId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
 }

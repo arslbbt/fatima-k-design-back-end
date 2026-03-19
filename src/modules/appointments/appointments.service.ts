@@ -31,6 +31,12 @@ const APPOINTMENT_SELECT = {
   createdAt: true,
 } as const;
 
+// Full appointment shape including bride relation — used in update/remove
+const APPOINTMENT_WITH_BRIDE = {
+  ...APPOINTMENT_SELECT,
+  bride: { select: { name: true, email: true } },
+} as const;
+
 @Injectable()
 export class AppointmentsService {
   private readonly logger = new Logger(AppointmentsService.name);
@@ -98,16 +104,20 @@ export class AppointmentsService {
     });
 
     // Confirmation email with ICS
-    await this.mailService.sendAppointmentConfirmation({
-      brideName: bride.name,
-      brideEmail: bride.email,
-      title: dto.title.replace('_', ' '),
-      location: dto.location ?? null,
-      startTime,
-      endTime,
-      whatToBring: dto.whatToBring ?? null,
-      ics: { uid: icsUid, sequence: 0, method: 'REQUEST' },
-    });
+    try {
+      await this.mailService.sendAppointmentConfirmation({
+        brideName: bride.name,
+        brideEmail: bride.email,
+        title: dto.title.replace('_', ' '),
+        location: dto.location ?? null,
+        startTime,
+        endTime,
+        whatToBring: dto.whatToBring ?? null,
+        ics: { uid: icsUid, sequence: 0, method: 'REQUEST' },
+      });
+    } catch (err) {
+      this.logger.error('Failed to send confirmation email', err);
+    }
 
     return {
       ...appointment,
@@ -147,12 +157,13 @@ export class AppointmentsService {
   async update(id: string, dto: UpdateAppointmentDto) {
     const appointment = await this.prisma.appointment.findUnique({
       where: { id },
-      include: { bride: { select: { name: true, email: true } } },
+      select: APPOINTMENT_WITH_BRIDE,
     });
     if (!appointment) throw new NotFoundException('Appointment not found');
 
     const isCancellation =
       dto.status === 'CANCELLED' && appointment.status !== 'CANCELLED';
+
     const newSequence = (appointment.icsSequence ?? 0) + 1;
 
     const data: Record<string, unknown> = { icsSequence: newSequence };
@@ -235,7 +246,7 @@ export class AppointmentsService {
           `Cancellation email sent to ${appointment.bride.email}`,
         );
       } catch (err) {
-        this.logger.error(`Failed to send cancellation email`, err);
+        this.logger.error('Failed to send cancellation email', err);
       }
     } else {
       await this.prisma.notification.create({
@@ -249,7 +260,7 @@ export class AppointmentsService {
         await this.mailService.sendAppointmentUpdate(emailCtx);
         this.logger.log(`Update email sent to ${appointment.bride.email}`);
       } catch (err) {
-        this.logger.error(`Failed to send update email`, err);
+        this.logger.error('Failed to send update email', err);
       }
     }
 
@@ -259,7 +270,7 @@ export class AppointmentsService {
   async remove(id: string) {
     const appointment = await this.prisma.appointment.findUnique({
       where: { id },
-      include: { bride: { select: { name: true, email: true } } },
+      select: APPOINTMENT_WITH_BRIDE,
     });
     if (!appointment) throw new NotFoundException('Appointment not found');
 
@@ -267,7 +278,7 @@ export class AppointmentsService {
       await this.googleCalendar.deleteEvent(appointment.googleEventId);
     }
 
-    // Send cancellation email before deleting — skip if already cancelled
+    // Send cancellation email only if not already cancelled
     if (appointment.status !== 'CANCELLED') {
       const icsUid = appointment.icsUid ?? randomUUID();
       const newSequence = (appointment.icsSequence ?? 0) + 1;
@@ -304,6 +315,8 @@ export class AppointmentsService {
   }
 
   // ── Cron job ──────────────────────────────────────────────────
+  // Runs every hour. Finds appointments starting in 47–48hrs
+  // where reminder hasn't been sent yet, sends email + notification.
 
   async sendPendingReminders() {
     const now = new Date();
@@ -316,33 +329,53 @@ export class AppointmentsService {
         reminderSentAt: null,
         startTime: { gte: in47h, lte: in48h },
       },
-      include: { bride: { select: { name: true, email: true } } },
+      select: {
+        id: true,
+        brideId: true,
+        title: true,
+        location: true,
+        startTime: true,
+        endTime: true,
+        whatToBring: true,
+        bride: { select: { name: true, email: true } },
+      },
     });
 
     for (const appt of upcoming) {
-      // Reminder email — no ICS, event already in their calendar
-      await this.mailService.sendAppointmentReminder({
-        brideName: appt.bride.name,
-        brideEmail: appt.bride.email,
-        title: appt.title.replace('_', ' '),
-        location: appt.location,
-        startTime: appt.startTime,
-        endTime: appt.endTime,
-        whatToBring: appt.whatToBring,
-      });
+      try {
+        await this.mailService.sendAppointmentReminder({
+          brideName: appt.bride.name,
+          brideEmail: appt.bride.email,
+          title: appt.title.replace('_', ' '),
+          location: appt.location,
+          startTime: appt.startTime,
+          endTime: appt.endTime,
+          whatToBring: appt.whatToBring,
+          // No ICS — event already in their calendar
+        });
 
-      await this.prisma.notification.create({
-        data: {
-          brideId: appt.brideId,
-          type: 'APPOINTMENT',
-          message: `Reminder: Your ${appt.title.replace('_', ' ')} appointment is in 48 hours.`,
-        },
-      });
+        await this.prisma.notification.create({
+          data: {
+            brideId: appt.brideId,
+            type: 'APPOINTMENT',
+            message: `Reminder: Your ${appt.title.replace('_', ' ')} appointment is in 48 hours.`,
+          },
+        });
 
-      await this.prisma.appointment.update({
-        where: { id: appt.id },
-        data: { reminderSentAt: new Date() },
-      });
+        await this.prisma.appointment.update({
+          where: { id: appt.id },
+          data: { reminderSentAt: now },
+        });
+
+        this.logger.log(
+          `Reminder sent to ${appt.bride.email} for appointment ${appt.id}`,
+        );
+      } catch (err) {
+        this.logger.error(
+          `Failed to send reminder for appointment ${appt.id}`,
+          err,
+        );
+      }
     }
   }
 }

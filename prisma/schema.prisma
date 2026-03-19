@@ -76,17 +76,19 @@ model BrideProfile {
 }
 
 model Appointment {
-  id          String            @id @default(uuid())
-  brideId     String            @map("bride_id")
-  title       AppointmentTitle
-  description String?
-  location    String?
-  startTime   DateTime          @map("start_time")
-  endTime     DateTime          @map("end_time")
-  whatToBring String?           @map("what_to_bring")
-  status      AppointmentStatus @default(SCHEDULED)
-  createdBy   String            @map("created_by")
-  createdAt   DateTime          @default(now()) @map("created_at")
+  id              String            @id @default(uuid())
+  brideId         String            @map("bride_id")
+  title           AppointmentTitle
+  description     String?
+  location        String?
+  startTime       DateTime          @map("start_time")
+  endTime         DateTime          @map("end_time")
+  whatToBring     String?           @map("what_to_bring")
+  status          AppointmentStatus @default(SCHEDULED)
+  createdBy       String            @map("created_by")
+  googleEventId   String?           @map("google_event_id")
+  reminderSentAt  DateTime?         @map("reminder_sent_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
 
   bride    User      @relation(fields: [brideId], references: [id], onDelete: Cascade)
   fittings Fitting[]

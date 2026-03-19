@@ -23,17 +23,17 @@ import { Role } from '@prisma/client';
 @ApiCookieAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN)
-@Controller('admin/admins')
+@Controller('admin')
 export class AdminController {
   constructor(private adminService: AdminService) {}
 
-  @Post()
+  @Post('create')
   @ApiOperation({ summary: 'Create a new admin account' })
   create(@Body() dto: CreateAdminDto) {
     return this.adminService.createAdmin(dto);
   }
 
-  @Get()
+  @Get('list')
   @ApiOperation({ summary: 'List all admins' })
   findAll() {
     return this.adminService.findAllAdmins();

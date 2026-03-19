@@ -1,4 +1,86 @@
-import { Controller } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Res,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+} from '@nestjs/common';
+import type { Response } from 'express';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiCookieAuth,
+} from '@nestjs/swagger';
+import { AuthService } from './auth.service';
+import { RegisterBrideDto } from './dto/register-bride.dto';
+import { LoginDto } from './dto/login.dto';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  path: '/',
+};
+
+@ApiTags('Auth')
 @Controller('auth')
-export class AuthController {}
+export class AuthController {
+  constructor(private authService: AuthService) {}
+
+  /**
+   * Bride self-registration — public
+   */
+  @Post('register')
+  @ApiOperation({ summary: 'Bride self-registration' })
+  async registerBride(@Body() dto: RegisterBrideDto) {
+    return this.authService.registerBride(dto);
+  }
+
+  /**
+   * Login for both admin and bride
+   */
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login — sets HttpOnly cookie with JWT' })
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { token, user } = await this.authService.login(dto);
+
+    res.cookie('access_token', token, COOKIE_OPTIONS);
+
+    return { message: 'Login successful', user };
+  }
+
+  /**
+   * Logout — clears the cookie
+   */
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Logout — clears the auth cookie' })
+  async logout(@Res({ passthrough: true }) res: Response) {
+    res.clearCookie('access_token', { path: '/' });
+    return { message: 'Logged out successfully' };
+  }
+
+  /**
+   * Get current authenticated user
+   */
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Get current authenticated user' })
+  async me(@CurrentUser() user: { id: string }) {
+    return this.authService.getMe(user.id);
+  }
+}

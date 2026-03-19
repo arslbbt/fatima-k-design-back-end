@@ -4,6 +4,7 @@ import envConfig from './config/env.config';
 import { PrismaService } from './database/prisma.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -13,8 +14,9 @@ import { UsersModule } from './modules/users/users.module';
     }),
     AuthModule,
     UsersModule,
+    AdminModule,
   ],
-  providers: [PrismaService], 
-  exports: [PrismaService],   
+  providers: [PrismaService],
+  exports: [PrismaService],
 })
 export class AppModule {}

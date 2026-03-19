@@ -24,7 +24,9 @@ $ pnpm prisma migrate deploy
 
 $ pnpm prisma generate
 
+# for running seedin script to create first admin 
 
+npx prisma db seed
 # Create a new module
 $ nest g module modules/auth
 $ nest g module modules/users

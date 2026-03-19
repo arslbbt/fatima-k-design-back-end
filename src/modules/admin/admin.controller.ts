@@ -12,6 +12,7 @@ import { ApiTags, ApiOperation, ApiCookieAuth } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
+import { ResetAdminPasswordDto } from './dto/reset-admin-password.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -48,5 +49,15 @@ export class AdminController {
   @ApiOperation({ summary: 'Remove an admin account' })
   remove(@Param('id') id: string, @CurrentUser() user: { id: string }) {
     return this.adminService.removeAdmin(id, user.id);
+  }
+
+  @Patch(':id/reset-password')
+  @ApiOperation({ summary: "Reset another admin's password" })
+  resetPassword(
+    @Param('id') id: string,
+    @CurrentUser() user: { id: string },
+    @Body() dto: ResetAdminPasswordDto,
+  ) {
+    return this.adminService.resetAdminPassword(id, user.id, dto);
   }
 }

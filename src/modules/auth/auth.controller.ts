@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Body,
   Res,
   HttpCode,
@@ -9,15 +10,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-  ApiCookieAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiCookieAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterBrideDto } from './dto/register-bride.dto';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -82,5 +79,19 @@ export class AuthController {
   @ApiOperation({ summary: 'Get current authenticated user' })
   async me(@CurrentUser() user: { id: string }) {
     return this.authService.getMe(user.id);
+  }
+
+  /**
+   * Change own password — both admin and bride
+   */
+  @Patch('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Change own password (requires current password)' })
+  async changePassword(
+    @CurrentUser() user: { id: string },
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(user.id, dto);
   }
 }

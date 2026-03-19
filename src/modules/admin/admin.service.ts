@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
+import { ResetAdminPasswordDto } from './dto/reset-admin-password.dto';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -99,5 +100,27 @@ export class AdminService {
     await this.prisma.user.delete({ where: { id } });
 
     return { message: 'Admin removed successfully' };
+  }
+
+  async resetAdminPassword(
+    id: string,
+    requestingAdminId: string,
+    dto: ResetAdminPasswordDto,
+  ) {
+    if (id === requestingAdminId) {
+      throw new BadRequestException(
+        'Use /auth/change-password to change your own password',
+      );
+    }
+
+    const admin = await this.prisma.user.findFirst({
+      where: { id, role: 'ADMIN' },
+    });
+    if (!admin) throw new NotFoundException('Admin not found');
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, 12);
+    await this.prisma.user.update({ where: { id }, data: { passwordHash } });
+
+    return { message: 'Admin password reset successfully' };
   }
 }

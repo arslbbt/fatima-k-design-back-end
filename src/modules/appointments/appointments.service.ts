@@ -10,6 +10,7 @@ import { MAIL_SERVICE } from '../../common/mail/mail.interface';
 import type { IMailService } from '../../common/mail/mail.interface';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
+import { randomUUID } from 'crypto';
 
 const APPOINTMENT_SELECT = {
   id: true,
@@ -23,6 +24,8 @@ const APPOINTMENT_SELECT = {
   status: true,
   createdBy: true,
   googleEventId: true,
+  icsUid: true,
+  icsSequence: true,
   reminderSentAt: true,
   createdAt: true,
 } as const;
@@ -36,7 +39,6 @@ export class AppointmentsService {
   ) {}
 
   async create(dto: CreateAppointmentDto, adminId: string) {
-    // Verify bride exists
     const bride = await this.prisma.user.findFirst({
       where: { id: dto.brideId, role: 'BRIDE' },
       select: { id: true, name: true, email: true },
@@ -45,12 +47,12 @@ export class AppointmentsService {
 
     const startTime = new Date(dto.startTime);
     const endTime = new Date(dto.endTime);
-
     if (endTime <= startTime) {
       throw new BadRequestException('End time must be after start time');
     }
 
-    // Save appointment first
+    const icsUid = randomUUID();
+
     const appointment = await this.prisma.appointment.create({
       data: {
         brideId: dto.brideId,
@@ -61,22 +63,21 @@ export class AppointmentsService {
         endTime,
         whatToBring: dto.whatToBring ?? null,
         createdBy: adminId,
+        icsUid,
+        icsSequence: 0,
       },
       select: APPOINTMENT_SELECT,
     });
 
-    // Create Google Calendar event (non-fatal if it fails)
+    // Google Calendar (non-fatal)
     const googleEventId = await this.googleCalendar.createEvent({
       summary: `${dto.title.replace('_', ' ')} — ${bride.name}`,
       description: dto.description,
       location: dto.location,
       startTime,
       endTime,
-      attendeeEmail: bride.email,
-      attendeeName: bride.name,
     });
 
-    // Store googleEventId if we got one
     if (googleEventId) {
       await this.prisma.appointment.update({
         where: { id: appointment.id },
@@ -84,7 +85,7 @@ export class AppointmentsService {
       });
     }
 
-    // Write in-app notification
+    // In-app notification
     await this.prisma.notification.create({
       data: {
         brideId: dto.brideId,
@@ -93,7 +94,7 @@ export class AppointmentsService {
       },
     });
 
-    // Send confirmation email
+    // Confirmation email with ICS
     await this.mailService.sendAppointmentConfirmation({
       brideName: bride.name,
       brideEmail: bride.email,
@@ -102,6 +103,7 @@ export class AppointmentsService {
       startTime,
       endTime,
       whatToBring: dto.whatToBring ?? null,
+      ics: { uid: icsUid, sequence: 0, method: 'REQUEST' },
     });
 
     return {
@@ -130,10 +132,8 @@ export class AppointmentsService {
       where: { id },
       select: APPOINTMENT_SELECT,
     });
-
     if (!appointment) throw new NotFoundException('Appointment not found');
 
-    // Brides can only see their own
     if (requesterRole === 'BRIDE' && appointment.brideId !== requesterId) {
       throw new NotFoundException('Appointment not found');
     }
@@ -148,7 +148,10 @@ export class AppointmentsService {
     });
     if (!appointment) throw new NotFoundException('Appointment not found');
 
-    const data: Record<string, unknown> = {};
+    const isCancellation = dto.status === 'CANCELLED';
+    const newSequence = (appointment.icsSequence ?? 0) + 1;
+
+    const data: Record<string, unknown> = { icsSequence: newSequence };
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.description !== undefined) data.description = dto.description;
     if (dto.location !== undefined) data.location = dto.location;
@@ -190,8 +193,27 @@ export class AppointmentsService {
       });
     }
 
-    // If cancelled — send cancellation email and notification
-    if (dto.status === 'CANCELLED') {
+    const icsUid = appointment.icsUid ?? randomUUID();
+    const emailCtx = {
+      brideName: appointment.bride.name,
+      brideEmail: appointment.bride.email,
+      title: (dto.title ?? appointment.title).replace('_', ' '),
+      location:
+        dto.location !== undefined ? dto.location : appointment.location,
+      startTime,
+      endTime,
+      whatToBring:
+        dto.whatToBring !== undefined
+          ? dto.whatToBring
+          : appointment.whatToBring,
+      ics: {
+        uid: icsUid,
+        sequence: newSequence,
+        method: isCancellation ? ('CANCEL' as const) : ('REQUEST' as const),
+      },
+    };
+
+    if (isCancellation) {
       await this.prisma.notification.create({
         data: {
           brideId: appointment.brideId,
@@ -199,16 +221,16 @@ export class AppointmentsService {
           message: `Your ${appointment.title.replace('_', ' ')} appointment has been cancelled.`,
         },
       });
-
-      await this.mailService.sendAppointmentCancellation({
-        brideName: appointment.bride.name,
-        brideEmail: appointment.bride.email,
-        title: appointment.title.replace('_', ' '),
-        location: appointment.location,
-        startTime: appointment.startTime,
-        endTime: appointment.endTime,
-        whatToBring: appointment.whatToBring,
+      await this.mailService.sendAppointmentCancellation(emailCtx);
+    } else {
+      await this.prisma.notification.create({
+        data: {
+          brideId: appointment.brideId,
+          type: 'APPOINTMENT',
+          message: `Your ${(dto.title ?? appointment.title).replace('_', ' ')} appointment has been updated.`,
+        },
       });
+      await this.mailService.sendAppointmentUpdate(emailCtx);
     }
 
     return updated;
@@ -228,7 +250,7 @@ export class AppointmentsService {
     return { message: 'Appointment deleted successfully' };
   }
 
-  // ── Called by cron job ────────────────────────────────────────
+  // ── Cron job ──────────────────────────────────────────────────
 
   async sendPendingReminders() {
     const now = new Date();
@@ -245,6 +267,7 @@ export class AppointmentsService {
     });
 
     for (const appt of upcoming) {
+      // Reminder email — no ICS, event already in their calendar
       await this.mailService.sendAppointmentReminder({
         brideName: appt.bride.name,
         brideEmail: appt.bride.email,
@@ -259,7 +282,7 @@ export class AppointmentsService {
         data: {
           brideId: appt.brideId,
           type: 'APPOINTMENT',
-          message: `Reminder: Your ${appt.title.replace('_', ' ')} appointment is tomorrow.`,
+          message: `Reminder: Your ${appt.title.replace('_', ' ')} appointment is in 48 hours.`,
         },
       });
 

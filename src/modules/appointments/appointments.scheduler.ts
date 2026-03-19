@@ -9,7 +9,7 @@ export class AppointmentsScheduler {
   constructor(private appointmentsService: AppointmentsService) {}
 
   // Runs every hour — checks for appointments starting in ~48hrs
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron(CronExpression.EVERY_MINUTE)
   async handleReminders() {
     this.logger.log('Running appointment reminder check...');
     await this.appointmentsService.sendPendingReminders();

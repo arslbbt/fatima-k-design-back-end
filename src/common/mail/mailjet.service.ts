@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Mailjet from 'node-mailjet';
 import { IMailService, AppointmentEmailContext } from './mail.interface';
+import { IcsService } from '../ics/ics.service';
 
 @Injectable()
 export class MailjetService implements IMailService {
@@ -10,7 +11,10 @@ export class MailjetService implements IMailService {
   private readonly fromName: string;
   private readonly logger = new Logger(MailjetService.name);
 
-  constructor(private config: ConfigService) {
+  constructor(
+    private config: ConfigService,
+    private ics: IcsService,
+  ) {
     this.client = new Mailjet({
       apiKey: this.config.get<string>('mailjet.apiKey'),
       apiSecret: this.config.get<string>('mailjet.secretKey'),
@@ -31,24 +35,75 @@ export class MailjetService implements IMailService {
     });
   }
 
+  private toGoogleCalendarDate(date: Date): string {
+    return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  }
+
+  private buildGoogleCalendarLink(ctx: AppointmentEmailContext): string {
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: `${ctx.title} — Fatima K Design`,
+      dates: `${this.toGoogleCalendarDate(ctx.startTime)}/${this.toGoogleCalendarDate(ctx.endTime)}`,
+      details: ctx.whatToBring ? `What to bring: ${ctx.whatToBring}` : '',
+      location: ctx.location ?? '',
+    });
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  }
+
+  private buildIcsAttachment(ctx: AppointmentEmailContext): object | null {
+    if (!ctx.ics) return null;
+
+    const icsContent = this.ics.generate({
+      uid: ctx.ics.uid,
+      sequence: ctx.ics.sequence,
+      method: ctx.ics.method,
+      summary: `${ctx.title} — Fatima K Design`,
+      description: ctx.whatToBring
+        ? `What to bring: ${ctx.whatToBring}`
+        : undefined,
+      location: ctx.location ?? undefined,
+      startTime: ctx.startTime,
+      endTime: ctx.endTime,
+      organizerEmail: this.fromEmail,
+      organizerName: this.fromName,
+      attendeeEmail: ctx.brideEmail,
+      attendeeName: ctx.brideName,
+    });
+
+    return {
+      ContentType: `text/calendar; method=${ctx.ics.method}`,
+      Filename: 'appointment.ics',
+      Base64Content: Buffer.from(icsContent).toString('base64'),
+    };
+  }
+
   private async send(
     to: { email: string; name: string },
     subject: string,
     htmlContent: string,
+    attachment?: object | null,
   ): Promise<void> {
     try {
-      await this.client.post('send', { version: 'v3.1' }).request({
-        Messages: [
-          {
-            From: { Email: this.fromEmail, Name: this.fromName },
-            To: [{ Email: to.email, Name: to.name }],
-            Subject: subject,
-            HTMLPart: htmlContent,
-          },
-        ],
-      });
-    } catch (err) {
-      this.logger.error(`Failed to send email to ${to.email}`, err);
+      const message: Record<string, unknown> = {
+        From: { Email: this.fromEmail, Name: this.fromName },
+        To: [{ Email: to.email, Name: to.name }],
+        Subject: subject,
+        HTMLPart: htmlContent,
+      };
+
+      if (attachment) {
+        message.Attachments = [attachment];
+      }
+
+      await this.client
+        .post('send', { version: 'v3.1' })
+        .request({ Messages: [message] });
+    } catch (err: any) {
+      this.logger.error(`Failed to send email to ${to.email}`);
+      this.logger.error(`Status: ${err?.statusCode ?? err?.status}`);
+      this.logger.error(
+        `Response: ${JSON.stringify(err?.response?.data ?? err?.message)}`,
+      );
       throw err;
     }
   }
@@ -59,7 +114,7 @@ export class MailjetService implements IMailService {
     const subject = `Your ${ctx.title} appointment is confirmed — Fatima K Design`;
     const html = this.buildAppointmentEmail({
       heading: 'Appointment Confirmed',
-      intro: `Hi ${ctx.brideName}, your appointment has been confirmed.`,
+      intro: `Hi ${ctx.brideName}, your appointment has been confirmed. You'll find a calendar invite attached.`,
       ctx,
       accentColor: '#b8860b',
     });
@@ -67,17 +122,35 @@ export class MailjetService implements IMailService {
       { email: ctx.brideEmail, name: ctx.brideName },
       subject,
       html,
+      this.buildIcsAttachment(ctx),
+    );
+  }
+
+  async sendAppointmentUpdate(ctx: AppointmentEmailContext): Promise<void> {
+    const subject = `Your ${ctx.title} appointment has been updated — Fatima K Design`;
+    const html = this.buildAppointmentEmail({
+      heading: 'Appointment Updated',
+      intro: `Hi ${ctx.brideName}, your appointment details have been updated. The attached calendar invite will update your existing event.`,
+      ctx,
+      accentColor: '#b8860b',
+    });
+    await this.send(
+      { email: ctx.brideEmail, name: ctx.brideName },
+      subject,
+      html,
+      this.buildIcsAttachment(ctx),
     );
   }
 
   async sendAppointmentReminder(ctx: AppointmentEmailContext): Promise<void> {
-    const subject = `Reminder: Your ${ctx.title} is coming up — Fatima K Design`;
+    const subject = `Reminder: Your ${ctx.title} is tomorrow — Fatima K Design`;
     const html = this.buildAppointmentEmail({
       heading: 'Appointment Reminder',
       intro: `Hi ${ctx.brideName}, just a reminder that your appointment is in 48 hours.`,
       ctx,
       accentColor: '#8b6914',
     });
+    // No ICS on reminders — event is already in their calendar
     await this.send(
       { email: ctx.brideEmail, name: ctx.brideName },
       subject,
@@ -99,6 +172,7 @@ export class MailjetService implements IMailService {
       { email: ctx.brideEmail, name: ctx.brideName },
       subject,
       html,
+      this.buildIcsAttachment(ctx),
     );
   }
 
@@ -109,6 +183,11 @@ export class MailjetService implements IMailService {
     accentColor: string;
   }): string {
     const { heading, intro, ctx, accentColor } = opts;
+    const showCalendarButton = ctx.ics && ctx.ics.method === 'REQUEST';
+    const googleCalLink = showCalendarButton
+      ? this.buildGoogleCalendarLink(ctx)
+      : '';
+
     return `
       <!DOCTYPE html>
       <html>
@@ -169,6 +248,24 @@ export class MailjetService implements IMailService {
                             : ''
                         }
                       </table>
+                      ${
+                        showCalendarButton
+                          ? `
+                      <table cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                        <tr>
+                          <td style="border-radius:3px;background:${accentColor};">
+                            <a href="${googleCalLink}" target="_blank"
+                              style="display:inline-block;padding:12px 24px;color:#fff;font-family:Georgia,serif;font-size:14px;text-decoration:none;letter-spacing:1px;">
+                              + Add to Google Calendar
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+                      <p style="margin:0 0 16px;color:#aaa;font-size:12px;">
+                        Or open the attached <strong>appointment.ics</strong> file to add to Apple Calendar, Outlook, or any other calendar app.
+                      </p>`
+                          : ''
+                      }
                       <p style="margin:0;color:#aaa;font-size:13px;">
                         If you have any questions, please reply to this email or contact us directly.
                       </p>

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MailjetService } from './mailjet.service';
 import { MAIL_SERVICE } from './mail.interface';
+import { IcsService } from '../ics/ics.service';
 
 /**
  * To switch providers (e.g. to SES or Resend):
@@ -9,6 +10,7 @@ import { MAIL_SERVICE } from './mail.interface';
  */
 @Module({
   providers: [
+    IcsService,
     {
       provide: MAIL_SERVICE,
       useClass: MailjetService,

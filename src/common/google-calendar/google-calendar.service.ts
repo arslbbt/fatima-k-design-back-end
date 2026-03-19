@@ -8,8 +8,6 @@ export interface CalendarEventPayload {
   location?: string;
   startTime: Date;
   endTime: Date;
-  attendeeEmail: string;
-  attendeeName: string;
 }
 
 @Injectable()
@@ -39,13 +37,10 @@ export class GoogleCalendarService {
           location: payload.location,
           start: { dateTime: payload.startTime.toISOString() },
           end: { dateTime: payload.endTime.toISOString() },
-          attendees: [
-            { email: payload.attendeeEmail, displayName: payload.attendeeName },
-          ],
           reminders: {
             useDefault: false,
             overrides: [
-              { method: 'email', minutes: 48 * 60 },
+              { method: 'popup', minutes: 48 * 60 },
               { method: 'popup', minutes: 60 },
             ],
           },

@@ -87,6 +87,8 @@ model Appointment {
   status          AppointmentStatus @default(SCHEDULED)
   createdBy       String            @map("created_by")
   googleEventId   String?           @map("google_event_id")
+  icsUid          String?           @map("ics_uid")
+  icsSequence     Int               @default(0) @map("ics_sequence")
   reminderSentAt  DateTime?         @map("reminder_sent_at")
   createdAt       DateTime          @default(now()) @map("created_at")
 

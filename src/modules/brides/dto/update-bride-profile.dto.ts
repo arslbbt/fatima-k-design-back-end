@@ -26,4 +26,13 @@ export class UpdateBrideProfileDto {
   @IsOptional()
   @IsString()
   stylePreferences?: string;
+
+  // Explicitly nullable — sending empty string or null clears the field
+  @ApiPropertyOptional({
+    example: 'Prefers morning appointments',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  notes?: string | null;
 }

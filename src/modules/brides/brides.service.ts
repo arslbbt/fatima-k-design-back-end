@@ -32,7 +32,6 @@ export class BridesService {
   }
 
   async updateMyProfile(userId: string, dto: UpdateBrideProfileDto) {
-    // Check email uniqueness if being changed
     if (dto.email) {
       const conflict = await this.prisma.user.findFirst({
         where: { email: dto.email, NOT: { id: userId } },
@@ -41,14 +40,17 @@ export class BridesService {
     }
 
     const userUpdate: Record<string, unknown> = {};
-    if (dto.name) userUpdate.name = dto.name;
-    if (dto.email) userUpdate.email = dto.email;
+    if (dto.name !== undefined) userUpdate.name = dto.name;
+    if (dto.email !== undefined) userUpdate.email = dto.email;
 
     const profileUpdate: Record<string, unknown> = {};
-    if (dto.weddingDate) profileUpdate.weddingDate = new Date(dto.weddingDate);
-    if (dto.phone) profileUpdate.phone = dto.phone;
-    if (dto.stylePreferences)
+    if (dto.weddingDate !== undefined)
+      profileUpdate.weddingDate = new Date(dto.weddingDate);
+    if (dto.phone !== undefined) profileUpdate.phone = dto.phone;
+    if (dto.stylePreferences !== undefined)
       profileUpdate.stylePreferences = dto.stylePreferences;
+    // notes: always write if key is present — empty string or null clears it
+    if ('notes' in dto) profileUpdate.notes = dto.notes ?? null;
 
     if (
       Object.keys(userUpdate).length === 0 &&

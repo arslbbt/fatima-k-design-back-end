@@ -26,12 +26,16 @@ export class BridesController {
   // ── Bride-facing ─────────────────────────────────────────────
 
   @Get('me')
+  @UseGuards(RolesGuard)
+  @Roles(Role.BRIDE)
   @ApiOperation({ summary: 'Bride — get own profile' })
   getMyProfile(@CurrentUser() user: { id: string }) {
     return this.bridesService.getMyProfile(user.id);
   }
 
   @Patch('me')
+  @UseGuards(RolesGuard)
+  @Roles(Role.BRIDE)
   @ApiOperation({ summary: 'Bride — update own profile' })
   updateMyProfile(
     @CurrentUser() user: { id: string },

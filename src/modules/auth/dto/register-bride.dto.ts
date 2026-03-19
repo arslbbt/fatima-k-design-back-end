@@ -35,4 +35,9 @@ export class RegisterBrideDto {
   @IsOptional()
   @IsString()
   stylePreferences?: string;
+
+  @ApiPropertyOptional({ example: 'Prefers morning appointments' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }

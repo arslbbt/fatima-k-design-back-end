@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   Inject,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { GoogleCalendarService } from '../../common/google-calendar/google-calendar.service';
@@ -32,6 +33,8 @@ const APPOINTMENT_SELECT = {
 
 @Injectable()
 export class AppointmentsService {
+  private readonly logger = new Logger(AppointmentsService.name);
+
   constructor(
     private prisma: PrismaService,
     private googleCalendar: GoogleCalendarService,
@@ -148,7 +151,8 @@ export class AppointmentsService {
     });
     if (!appointment) throw new NotFoundException('Appointment not found');
 
-    const isCancellation = dto.status === 'CANCELLED';
+    const isCancellation =
+      dto.status === 'CANCELLED' && appointment.status !== 'CANCELLED';
     const newSequence = (appointment.icsSequence ?? 0) + 1;
 
     const data: Record<string, unknown> = { icsSequence: newSequence };
@@ -182,15 +186,19 @@ export class AppointmentsService {
 
     // Sync Google Calendar
     if (appointment.googleEventId) {
-      await this.googleCalendar.updateEvent(appointment.googleEventId, {
-        summary: dto.title
-          ? `${dto.title.replace('_', ' ')} — ${appointment.bride.name}`
-          : undefined,
-        description: dto.description,
-        location: dto.location,
-        startTime: dto.startTime ? startTime : undefined,
-        endTime: dto.endTime ? endTime : undefined,
-      });
+      if (isCancellation) {
+        await this.googleCalendar.deleteEvent(appointment.googleEventId);
+      } else {
+        await this.googleCalendar.updateEvent(appointment.googleEventId, {
+          summary: dto.title
+            ? `${dto.title.replace('_', ' ')} — ${appointment.bride.name}`
+            : undefined,
+          description: dto.description,
+          location: dto.location,
+          startTime: dto.startTime ? startTime : undefined,
+          endTime: dto.endTime ? endTime : undefined,
+        });
+      }
     }
 
     const icsUid = appointment.icsUid ?? randomUUID();
@@ -221,7 +229,14 @@ export class AppointmentsService {
           message: `Your ${appointment.title.replace('_', ' ')} appointment has been cancelled.`,
         },
       });
-      await this.mailService.sendAppointmentCancellation(emailCtx);
+      try {
+        await this.mailService.sendAppointmentCancellation(emailCtx);
+        this.logger.log(
+          `Cancellation email sent to ${appointment.bride.email}`,
+        );
+      } catch (err) {
+        this.logger.error(`Failed to send cancellation email`, err);
+      }
     } else {
       await this.prisma.notification.create({
         data: {
@@ -230,7 +245,12 @@ export class AppointmentsService {
           message: `Your ${(dto.title ?? appointment.title).replace('_', ' ')} appointment has been updated.`,
         },
       });
-      await this.mailService.sendAppointmentUpdate(emailCtx);
+      try {
+        await this.mailService.sendAppointmentUpdate(emailCtx);
+        this.logger.log(`Update email sent to ${appointment.bride.email}`);
+      } catch (err) {
+        this.logger.error(`Failed to send update email`, err);
+      }
     }
 
     return updated;
@@ -239,11 +259,44 @@ export class AppointmentsService {
   async remove(id: string) {
     const appointment = await this.prisma.appointment.findUnique({
       where: { id },
+      include: { bride: { select: { name: true, email: true } } },
     });
     if (!appointment) throw new NotFoundException('Appointment not found');
 
     if (appointment.googleEventId) {
       await this.googleCalendar.deleteEvent(appointment.googleEventId);
+    }
+
+    // Send cancellation email before deleting — skip if already cancelled
+    if (appointment.status !== 'CANCELLED') {
+      const icsUid = appointment.icsUid ?? randomUUID();
+      const newSequence = (appointment.icsSequence ?? 0) + 1;
+
+      try {
+        await this.mailService.sendAppointmentCancellation({
+          brideName: appointment.bride.name,
+          brideEmail: appointment.bride.email,
+          title: appointment.title.replace('_', ' '),
+          location: appointment.location,
+          startTime: appointment.startTime,
+          endTime: appointment.endTime,
+          whatToBring: appointment.whatToBring,
+          ics: { uid: icsUid, sequence: newSequence, method: 'CANCEL' },
+        });
+        this.logger.log(
+          `Cancellation email sent to ${appointment.bride.email}`,
+        );
+      } catch (err) {
+        this.logger.error('Failed to send cancellation email on delete', err);
+      }
+
+      await this.prisma.notification.create({
+        data: {
+          brideId: appointment.brideId,
+          type: 'APPOINTMENT',
+          message: `Your ${appointment.title.replace('_', ' ')} appointment has been cancelled.`,
+        },
+      });
     }
 
     await this.prisma.appointment.delete({ where: { id } });

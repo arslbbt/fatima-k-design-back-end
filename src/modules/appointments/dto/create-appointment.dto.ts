@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  ValidateIf,
 } from 'class-validator';
 
 export class CreateAppointmentDto {
@@ -16,6 +17,12 @@ export class CreateAppointmentDto {
   @ApiProperty({ enum: AppointmentTitle })
   @IsEnum(AppointmentTitle)
   title: AppointmentTitle;
+
+  // Required when title === CUSTOM
+  @ApiPropertyOptional({ example: 'Veil & Accessories Review' })
+  @ValidateIf((o) => o.title === AppointmentTitle.CUSTOM)
+  @IsString()
+  customTitle?: string;
 
   @ApiPropertyOptional({ example: 'First consultation session' })
   @IsOptional()
@@ -35,9 +42,7 @@ export class CreateAppointmentDto {
   @IsDateString()
   endTime: string;
 
-  @ApiPropertyOptional({
-    example: 'Bring your inspiration photos and measurements',
-  })
+  @ApiPropertyOptional({ example: 'Bring your inspiration photos' })
   @IsOptional()
   @IsString()
   whatToBring?: string;

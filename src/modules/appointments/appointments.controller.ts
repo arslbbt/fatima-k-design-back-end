@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiCookieAuth } from '@nestjs/swagger';
@@ -13,6 +14,7 @@ import { Role } from '@prisma/client';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
+import { ListAppointmentsQueryDto } from './dto/list-appointments-query.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -39,9 +41,14 @@ export class AppointmentsController {
 
   @Get()
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Admin — list all appointments' })
-  findAll() {
-    return this.appointmentsService.findAllForAdmin();
+  @ApiOperation({
+    summary: 'Admin — list all appointments with optional date range',
+  })
+  findAll(@Query() query: ListAppointmentsQueryDto) {
+    return this.appointmentsService.findAllForAdmin(
+      query.from ? new Date(query.from) : undefined,
+      query.to ? new Date(query.to) : undefined,
+    );
   }
 
   @Patch(':id')

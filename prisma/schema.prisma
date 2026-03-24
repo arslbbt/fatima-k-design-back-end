@@ -20,8 +20,13 @@ enum AppointmentStatus {
 
 enum AppointmentTitle {
   CONSULTATION
-  FITTING
-  FINAL_PICKUP
+  FIRST_FITTING
+  SECOND_FITTING
+  THIRD_FITTING
+  FINAL_FITTING
+  ALTERATION
+  COLLECTION_READY
+  CUSTOM
 }
 
 enum PaymentType {

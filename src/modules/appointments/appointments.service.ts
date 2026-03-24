@@ -61,6 +61,11 @@ export class AppointmentsService {
     }
 
     const icsUid = randomUUID();
+    // Resolve display title — use customTitle when title is CUSTOM
+    const displayTitle =
+      (dto.title as string) === 'CUSTOM' && dto.customTitle
+        ? dto.customTitle
+        : dto.title.replace(/_/g, ' ');
 
     const appointment = await this.prisma.appointment.create({
       data: {
@@ -80,7 +85,7 @@ export class AppointmentsService {
 
     // Google Calendar (non-fatal)
     const googleEventId = await this.googleCalendar.createEvent({
-      summary: `${dto.title.replace('_', ' ')} — ${bride.name}`,
+      summary: `${displayTitle} — ${bride.name}`,
       description: dto.description,
       location: dto.location,
       startTime,
@@ -99,7 +104,7 @@ export class AppointmentsService {
       data: {
         brideId: dto.brideId,
         type: 'APPOINTMENT',
-        message: `Your ${dto.title.replace('_', ' ')} appointment has been scheduled for ${startTime.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.`,
+        message: `Your ${displayTitle} appointment has been scheduled for ${startTime.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.`,
       },
     });
 
@@ -108,7 +113,7 @@ export class AppointmentsService {
       await this.mailService.sendAppointmentConfirmation({
         brideName: bride.name,
         brideEmail: bride.email,
-        title: dto.title.replace('_', ' '),
+        title: displayTitle,
         location: dto.location ?? null,
         startTime,
         endTime,
@@ -125,9 +130,19 @@ export class AppointmentsService {
     };
   }
 
-  async findAllForAdmin() {
+  async findAllForAdmin(from?: Date, to?: Date) {
     return this.prisma.appointment.findMany({
-      select: APPOINTMENT_SELECT,
+      where: {
+        ...(from || to
+          ? {
+              startTime: { ...(from && { gte: from }), ...(to && { lte: to }) },
+            }
+          : {}),
+      },
+      select: {
+        ...APPOINTMENT_SELECT,
+        bride: { select: { id: true, name: true, email: true } },
+      },
       orderBy: { startTime: 'asc' },
     });
   }

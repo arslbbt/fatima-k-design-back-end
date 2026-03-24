@@ -5,12 +5,15 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiCookieAuth } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { BridesService } from './brides.service';
 import { UpdateBrideProfileDto } from './dto/update-bride-profile.dto';
+import { UpdateBrideStageDto } from './dto/update-bride-stage.dto';
+import { ListBridesQueryDto } from './dto/list-brides-query.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -49,9 +52,9 @@ export class BridesController {
   @Get()
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Admin — list all brides' })
-  findAll() {
-    return this.bridesService.findAll();
+  @ApiOperation({ summary: 'Admin — list brides with pagination & filters' })
+  findAll(@Query() query: ListBridesQueryDto) {
+    return this.bridesService.findAll(query);
   }
 
   @Get(':id')
@@ -60,6 +63,14 @@ export class BridesController {
   @ApiOperation({ summary: 'Admin — get a specific bride profile' })
   findOne(@Param('id') id: string) {
     return this.bridesService.findOne(id);
+  }
+
+  @Patch(':id/stage')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Admin — update bride stage' })
+  updateStage(@Param('id') id: string, @Body() dto: UpdateBrideStageDto) {
+    return this.bridesService.updateStage(id, dto);
   }
 
   @Delete(':id')

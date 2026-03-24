@@ -5,7 +5,9 @@ import {
   MinLength,
   IsOptional,
   IsDateString,
+  IsEnum,
 } from 'class-validator';
+import { BrideStage } from '@prisma/client';
 
 export class RegisterBrideDto {
   @ApiProperty({ example: 'Sarah Johnson' })

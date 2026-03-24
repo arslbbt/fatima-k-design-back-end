@@ -4,8 +4,11 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { BrideStage } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { UpdateBrideProfileDto } from './dto/update-bride-profile.dto';
+import { UpdateBrideStageDto } from './dto/update-bride-stage.dto';
+import { ListBridesQueryDto } from './dto/list-brides-query.dto';
 
 // Reusable select shape — never expose passwordHash
 const BRIDE_SELECT = {
@@ -73,12 +76,51 @@ export class BridesService {
 
   // ── Admin-only ──────────────────────────────────────────────
 
-  async findAll() {
-    return this.prisma.user.findMany({
-      where: { role: 'BRIDE' },
-      select: BRIDE_SELECT,
-      orderBy: { createdAt: 'desc' },
-    });
+  async findAll(query: ListBridesQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const skip = (page - 1) * limit;
+
+    const where: Record<string, unknown> = { role: 'BRIDE' };
+
+    if (query.search) {
+      where.OR = [
+        { name: { contains: query.search, mode: 'insensitive' } },
+        { email: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (query.stage || query.stylePreferences) {
+      const profileWhere: Record<string, unknown> = {};
+      if (query.stage) profileWhere.stage = query.stage;
+      if (query.stylePreferences)
+        profileWhere.stylePreferences = {
+          contains: query.stylePreferences,
+          mode: 'insensitive',
+        };
+      where.brideProfile = profileWhere;
+    }
+
+    const [total, data] = await this.prisma.$transaction([
+      this.prisma.user.count({ where }),
+      this.prisma.user.findMany({
+        where,
+        select: BRIDE_SELECT,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findOne(id: string) {
@@ -88,6 +130,19 @@ export class BridesService {
     });
     if (!bride) throw new NotFoundException('Bride not found');
     return bride;
+  }
+
+  async updateStage(id: string, dto: UpdateBrideStageDto) {
+    const bride = await this.prisma.user.findFirst({
+      where: { id, role: 'BRIDE' },
+    });
+    if (!bride) throw new NotFoundException('Bride not found');
+
+    return this.prisma.user.update({
+      where: { id },
+      data: { brideProfile: { update: { stage: dto.stage } } },
+      select: BRIDE_SELECT,
+    });
   }
 
   async remove(id: string) {

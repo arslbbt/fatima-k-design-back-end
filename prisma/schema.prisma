@@ -61,14 +61,25 @@ model User {
   @@map("users")
 }
 
+enum BrideStage {
+  CONSULTATION
+  FIRST_FITTING
+  SECOND_FITTING
+  THIRD_FITTING
+  FINAL_FITTING
+  ALTERATION
+  COLLECTION_READY
+}
+
 model BrideProfile {
-  id               String    @id @default(uuid())
-  userId           String    @unique @map("user_id")
-  weddingDate      DateTime? @map("wedding_date")
+  id               String     @id @default(uuid())
+  userId           String     @unique @map("user_id")
+  weddingDate      DateTime?  @map("wedding_date")
   phone            String?
-  stylePreferences String?   @map("style_preferences")
+  stylePreferences String?    @map("style_preferences")
   notes            String?
-  createdAt        DateTime  @default(now()) @map("created_at")
+  stage            BrideStage @default(CONSULTATION)
+  createdAt        DateTime   @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

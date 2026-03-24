@@ -8,11 +8,46 @@ import { PrismaService } from '../../database/prisma.service';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
 import { ResetAdminPasswordDto } from './dto/reset-admin-password.dto';
+import { RegisterBrideDto } from '../auth/dto/register-bride.dto';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AdminService {
   constructor(private prisma: PrismaService) {}
+
+  async registerBride(dto: RegisterBrideDto) {
+    const existing = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+    if (existing) throw new ConflictException('Email already in use');
+
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+
+    return this.prisma.user.create({
+      data: {
+        name: dto.name,
+        email: dto.email,
+        passwordHash,
+        role: 'BRIDE',
+        brideProfile: {
+          create: {
+            weddingDate: dto.weddingDate ? new Date(dto.weddingDate) : null,
+            phone: dto.phone ?? null,
+            stylePreferences: dto.stylePreferences ?? null,
+            notes: dto.notes ?? null,
+          },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        brideProfile: true,
+      },
+    });
+  }
 
   async createAdmin(dto: CreateAdminDto) {
     const existing = await this.prisma.user.findUnique({

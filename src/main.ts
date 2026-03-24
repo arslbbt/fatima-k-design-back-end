@@ -8,6 +8,16 @@ const cookieParser = require('cookie-parser');
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // CORS — allow frontend dev server and production origin
+  app.enableCors({
+    origin: [
+      'http://localhost:3001',
+      'http://localhost:4173',
+      process.env.FRONTEND_URL ?? '',
+    ].filter(Boolean),
+    credentials: true,
+  });
+
   // Cookie parser — required for reading HttpOnly JWT cookie
   app.use(cookieParser());
 

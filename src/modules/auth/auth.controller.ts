@@ -12,7 +12,6 @@ import {
 import type { Response } from 'express';
 import { ApiTags, ApiOperation, ApiCookieAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { RegisterBrideDto } from './dto/register-bride.dto';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -30,15 +29,6 @@ const COOKIE_OPTIONS = {
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
-
-  /**
-   * Bride self-registration — public
-   */
-  @Post('register')
-  @ApiOperation({ summary: 'Bride self-registration' })
-  async registerBride(@Body() dto: RegisterBrideDto) {
-    return this.authService.registerBride(dto);
-  }
 
   /**
    * Login for both admin and bride

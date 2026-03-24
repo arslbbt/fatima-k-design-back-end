@@ -13,6 +13,7 @@ import { AdminService } from './admin.service';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
 import { ResetAdminPasswordDto } from './dto/reset-admin-password.dto';
+import { RegisterBrideDto } from '../auth/dto/register-bride.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -26,6 +27,16 @@ import { Role } from '@prisma/client';
 @Controller('admin')
 export class AdminController {
   constructor(private adminService: AdminService) {}
+
+  // ── Bride management ─────────────────────────────────────────
+
+  @Post('register-bride')
+  @ApiOperation({ summary: 'Admin — register a new bride account' })
+  registerBride(@Body() dto: RegisterBrideDto) {
+    return this.adminService.registerBride(dto);
+  }
+
+  // ── Admin management ─────────────────────────────────────────
 
   @Post('create')
   @ApiOperation({ summary: 'Create a new admin account' })

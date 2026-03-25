@@ -2,37 +2,17 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsDateString, IsEmail, IsOptional, IsString } from 'class-validator';
 
 export class UpdateBrideProfileDto {
-  @ApiPropertyOptional({ example: 'Sarah Johnson' })
-  @IsOptional()
-  @IsString()
-  name?: string;
-
-  @ApiPropertyOptional({ example: 'sarah@example.com' })
-  @IsOptional()
-  @IsEmail()
-  email?: string;
-
-  @ApiPropertyOptional({ example: '2026-09-15' })
-  @IsOptional()
-  @IsDateString()
-  weddingDate?: string;
-
-  @ApiPropertyOptional({ example: '+971501234567' })
-  @IsOptional()
-  @IsString()
-  phone?: string;
-
-  @ApiPropertyOptional({ example: 'Romantic, flowy, lace details' })
-  @IsOptional()
-  @IsString()
-  stylePreferences?: string;
-
-  // Explicitly nullable — sending empty string or null clears the field
-  @ApiPropertyOptional({
-    example: 'Prefers morning appointments',
-    nullable: true,
-  })
-  @IsOptional()
-  @IsString()
-  notes?: string | null;
+  @ApiPropertyOptional() @IsOptional() @IsString() name?: string;
+  @ApiPropertyOptional() @IsOptional() @IsEmail() email?: string;
+  @ApiPropertyOptional() @IsOptional() @IsDateString() weddingDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() phone?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() address?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() partnerName?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() venueName?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() guestCount?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() dietaryNotes?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() stylePreferences?: string;
+  @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsString() notes?:
+    | string
+    | null;
 }

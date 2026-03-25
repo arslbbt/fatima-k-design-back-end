@@ -50,6 +50,13 @@ export class BridesService {
     if (dto.weddingDate !== undefined)
       profileUpdate.weddingDate = new Date(dto.weddingDate);
     if (dto.phone !== undefined) profileUpdate.phone = dto.phone;
+    if (dto.address !== undefined) profileUpdate.address = dto.address;
+    if (dto.partnerName !== undefined)
+      profileUpdate.partnerName = dto.partnerName;
+    if (dto.venueName !== undefined) profileUpdate.venueName = dto.venueName;
+    if (dto.guestCount !== undefined) profileUpdate.guestCount = dto.guestCount;
+    if (dto.dietaryNotes !== undefined)
+      profileUpdate.dietaryNotes = dto.dietaryNotes;
     if (dto.stylePreferences !== undefined)
       profileUpdate.stylePreferences = dto.stylePreferences;
     // notes: always write if key is present — empty string or null clears it

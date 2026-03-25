@@ -82,6 +82,11 @@ model BrideProfile {
   userId           String     @unique @map("user_id")
   weddingDate      DateTime?  @map("wedding_date")
   phone            String?
+  address          String?
+  partnerName      String?    @map("partner_name")
+  venueName        String?    @map("venue_name")
+  guestCount       String?    @map("guest_count")
+  dietaryNotes     String?    @map("dietary_notes")
   stylePreferences String?    @map("style_preferences")
   notes            String?
   stage            BrideStage @default(CONSULTATION)

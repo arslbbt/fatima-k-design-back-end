@@ -28,6 +28,20 @@ import { Role } from '@prisma/client';
 export class AdminController {
   constructor(private adminService: AdminService) {}
 
+  // ── Self-management ──────────────────────────────────────────
+
+  @Get('me')
+  @ApiOperation({ summary: 'Get own admin profile' })
+  getMe(@CurrentUser() user: { id: string }) {
+    return this.adminService.getAdminById(user.id);
+  }
+
+  @Patch('me')
+  @ApiOperation({ summary: 'Update own admin profile (name / email)' })
+  updateMe(@CurrentUser() user: { id: string }, @Body() dto: UpdateAdminDto) {
+    return this.adminService.updateAdmin(user.id, dto);
+  }
+
   // ── Bride management ─────────────────────────────────────────
 
   @Post('register-bride')

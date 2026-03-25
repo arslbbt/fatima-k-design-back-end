@@ -15,6 +15,21 @@ import * as bcrypt from 'bcrypt';
 export class AdminService {
   constructor(private prisma: PrismaService) {}
 
+  async getAdminById(id: string) {
+    const admin = await this.prisma.user.findFirst({
+      where: { id, role: 'ADMIN' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+    if (!admin) throw new NotFoundException('Admin not found');
+    return admin;
+  }
+
   async registerBride(dto: RegisterBrideDto) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },

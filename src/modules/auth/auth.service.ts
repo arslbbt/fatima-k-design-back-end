@@ -36,7 +36,6 @@ export class AuthService {
           create: {
             weddingDate: dto.weddingDate ? new Date(dto.weddingDate) : null,
             phone: dto.phone ?? null,
-            stylePreferences: dto.stylePreferences ?? null,
             notes: dto.notes ?? null,
           },
         },

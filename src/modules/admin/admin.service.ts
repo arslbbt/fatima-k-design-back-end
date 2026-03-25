@@ -33,7 +33,8 @@ export class AdminService {
           create: {
             weddingDate: dto.weddingDate ? new Date(dto.weddingDate) : null,
             phone: dto.phone ?? null,
-            stylePreferences: dto.stylePreferences ?? null,
+            partnerName: dto.partnerName ?? null,
+            venueName: dto.venueName ?? null,
             notes: dto.notes ?? null,
           },
         },
@@ -137,7 +138,7 @@ export class AdminService {
     return { message: 'Admin removed successfully' };
   }
 
-   async resetUserPassword(
+  async resetUserPassword(
     id: string,
     requestingAdminId: string,
     dto: ResetAdminPasswordDto,

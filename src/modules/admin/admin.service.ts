@@ -15,6 +15,48 @@ import * as bcrypt from 'bcrypt';
 export class AdminService {
   constructor(private prisma: PrismaService) {}
 
+  async listAllUsers(params: {
+    page: number;
+    limit: number;
+    search?: string;
+    role?: 'ADMIN' | 'BRIDE';
+  }) {
+    const { page, limit, search, role } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Record<string, unknown> = {};
+    if (role) where.role = role;
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [total, data] = await this.prisma.$transaction([
+      this.prisma.user.count({ where }),
+      this.prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true,
+          brideProfile: { select: { stage: true, weddingDate: true } },
+        },
+        orderBy: [{ role: 'asc' }, { createdAt: 'desc' }],
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      data,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
   async getAdminById(id: string) {
     const admin = await this.prisma.user.findFirst({
       where: { id, role: 'ADMIN' },

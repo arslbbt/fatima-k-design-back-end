@@ -6,9 +6,15 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiCookieAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiCookieAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
@@ -40,6 +46,30 @@ export class AdminController {
   @ApiOperation({ summary: 'Update own admin profile (name / email)' })
   updateMe(@CurrentUser() user: { id: string }, @Body() dto: UpdateAdminDto) {
     return this.adminService.updateAdmin(user.id, dto);
+  }
+
+  // ── User management (all users) ──────────────────────────────
+
+  @Get('users')
+  @ApiOperation({
+    summary: 'List all users with pagination, search, role filter',
+  })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'role', required: false, enum: ['ADMIN', 'BRIDE'] })
+  listUsers(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('role') role?: 'ADMIN' | 'BRIDE',
+  ) {
+    return this.adminService.listAllUsers({
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 10,
+      search,
+      role,
+    });
   }
 
   // ── Bride management ─────────────────────────────────────────

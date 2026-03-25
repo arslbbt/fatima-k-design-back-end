@@ -137,7 +137,7 @@ export class AdminService {
     return { message: 'Admin removed successfully' };
   }
 
-  async resetAdminPassword(
+   async resetUserPassword(
     id: string,
     requestingAdminId: string,
     dto: ResetAdminPasswordDto,
@@ -148,14 +148,14 @@ export class AdminService {
       );
     }
 
-    const admin = await this.prisma.user.findFirst({
-      where: { id, role: 'ADMIN' },
-    });
-    if (!admin) throw new NotFoundException('Admin not found');
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
 
     const passwordHash = await bcrypt.hash(dto.newPassword, 12);
     await this.prisma.user.update({ where: { id }, data: { passwordHash } });
 
-    return { message: 'Admin password reset successfully' };
+    return {
+      message: `${user.role === 'BRIDE' ? 'Bride' : 'Admin'} password reset successfully`,
+    };
   }
 }

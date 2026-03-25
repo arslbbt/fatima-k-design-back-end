@@ -62,13 +62,13 @@ export class AdminController {
     return this.adminService.removeAdmin(id, user.id);
   }
 
-  @Patch(':id/reset-password')
-  @ApiOperation({ summary: "Reset another admin's password" })
-  resetPassword(
+  @Patch('users/:id/reset-password')
+  @ApiOperation({ summary: 'Reset any user password (admin or bride)' })
+  resetUserPassword(
     @Param('id') id: string,
     @CurrentUser() user: { id: string },
     @Body() dto: ResetAdminPasswordDto,
   ) {
-    return this.adminService.resetAdminPassword(id, user.id, dto);
+    return this.adminService.resetUserPassword(id, user.id, dto);
   }
 }

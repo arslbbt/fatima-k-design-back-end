@@ -59,6 +59,28 @@ export class DocumentsService {
     });
   }
 
+  async listAll(params: { brideId?: string; search?: string }) {
+    const { brideId, search } = params;
+
+    const where: Record<string, unknown> = {};
+    if (brideId) where.brideId = brideId;
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { bride: { name: { contains: search, mode: 'insensitive' } } },
+        { bride: { email: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    return this.prisma.document.findMany({
+      where,
+      orderBy: { uploadedAt: 'desc' },
+      include: {
+        bride: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
+
   async listForBride(brideId: string) {
     return this.prisma.document.findMany({
       where: { brideId },

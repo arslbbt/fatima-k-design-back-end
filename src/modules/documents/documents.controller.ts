@@ -5,6 +5,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -48,6 +49,18 @@ export class DocumentsController {
     @CurrentUser() user: { id: string },
   ) {
     return this.documentsService.upload(brideId, file, body.title, user.id);
+  }
+
+  @Get()
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Admin — list all documents with optional brideId + search filter',
+  })
+  listAll(
+    @Query('brideId') brideId?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.documentsService.listAll({ brideId, search });
   }
 
   @Get('bride/:brideId')

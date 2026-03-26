@@ -26,6 +26,20 @@ export class DocumentsService {
 
     if (!file?.buffer) throw new BadRequestException('No file received');
 
+    const ALLOWED = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    if (!ALLOWED.includes(file.mimetype)) {
+      throw new BadRequestException(
+        'Only PDF and Word documents (.pdf, .docx) are allowed',
+      );
+    }
+
+    if (file.size > 20 * 1024 * 1024) {
+      throw new BadRequestException('File size must not exceed 20MB');
+    }
+
     const fileType = file.mimetype === 'application/pdf' ? 'pdf' : 'docx';
     const fileUrl = this.storage.saveFile(
       brideId,

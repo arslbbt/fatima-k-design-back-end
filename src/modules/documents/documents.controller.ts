@@ -8,9 +8,6 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
-  ParseFilePipe,
-  MaxFileSizeValidator,
-  FileTypeValidator,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -46,18 +43,7 @@ export class DocumentsController {
   @UseInterceptors(FileInterceptor('file'))
   async upload(
     @Param('brideId') brideId: string,
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: 20 * 1024 * 1024 }),
-          new FileTypeValidator({
-            fileType:
-              /^(application\/pdf|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)$/,
-          }),
-        ],
-      }),
-    )
-    file: Express.Multer.File,
+    @UploadedFile() file: Express.Multer.File,
     @Body() body: UploadDocumentDto,
     @CurrentUser() user: { id: string },
   ) {

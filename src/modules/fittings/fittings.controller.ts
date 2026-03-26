@@ -26,10 +26,10 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { IsOptional, IsString, IsUUID } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 class CreateFittingDto {
-  @ApiPropertyOptional() @IsOptional() @IsUUID() appointmentId?: string;
+  @ApiProperty() @IsUUID() appointmentId: string;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
 }
 

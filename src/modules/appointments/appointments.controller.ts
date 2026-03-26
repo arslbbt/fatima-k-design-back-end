@@ -69,6 +69,13 @@ export class AppointmentsController {
 
   // ── Bride ─────────────────────────────────────────────────────
 
+  @Get('bride/:brideId')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Admin — list appointments for a specific bride' })
+  findForBride(@Param('brideId') brideId: string) {
+    return this.appointmentsService.findAllForBride(brideId);
+  }
+
   @Get('my')
   @Roles(Role.BRIDE)
   @ApiOperation({ summary: 'Bride — view own appointments' })

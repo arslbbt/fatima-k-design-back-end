@@ -13,11 +13,18 @@ export class FittingsService {
     private storage: StorageService,
   ) {}
 
-  async create(brideId: string, appointmentId?: string, notes?: string) {
+  async create(brideId: string, appointmentId: string, notes?: string) {
     const bride = await this.prisma.user.findFirst({
       where: { id: brideId, role: 'BRIDE' },
     });
     if (!bride) throw new NotFoundException('Bride not found');
+
+    // Validate appointment belongs to this bride
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { id: appointmentId, brideId },
+    });
+    if (!appointment)
+      throw new NotFoundException('Appointment not found for this bride');
 
     // Auto-increment fitting number for this bride
     const count = await this.prisma.fitting.count({ where: { brideId } });
@@ -26,7 +33,7 @@ export class FittingsService {
       data: {
         brideId,
         fittingNumber: count + 1,
-        appointmentId: appointmentId ?? null,
+        appointmentId,
         notes: notes ?? null,
       },
       include: { photos: true },

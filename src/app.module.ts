@@ -8,6 +8,9 @@ import { UsersModule } from './modules/users/users.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { BridesModule } from './modules/brides/brides.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
+import { DocumentsModule } from './modules/documents/documents.module';
+import { FittingsModule } from './modules/fittings/fittings.module';
+import { InspoModule } from './modules/inspo/inspo.module';
 
 @Module({
   imports: [
@@ -18,6 +21,9 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
     AdminModule,
     BridesModule,
     AppointmentsModule,
+    DocumentsModule,
+    FittingsModule,
+    InspoModule,
   ],
   providers: [PrismaService],
   exports: [PrismaService],

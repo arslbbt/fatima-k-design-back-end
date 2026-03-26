@@ -63,6 +63,7 @@ model User {
   favorites     Favorite[]
   payments      Payment[]
   notifications Notification[]
+  documents     Document[]
 
   @@map("users")
 }
@@ -199,4 +200,18 @@ model Notification {
   bride User @relation(fields: [brideId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
+}
+
+model Document {
+  id         String   @id @default(uuid())
+  brideId    String   @map("bride_id")
+  title      String
+  fileUrl    String   @map("file_url")
+  fileType   String   @map("file_type")
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+  uploadedBy String   @map("uploaded_by")
+
+  bride User @relation(fields: [brideId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
 }

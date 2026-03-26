@@ -2,11 +2,13 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import * as path from 'path';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const cookieParser = require('cookie-parser');
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // CORS — allow frontend dev server and production origin
   app.enableCors({
@@ -20,6 +22,11 @@ async function bootstrap() {
 
   // Cookie parser — required for reading HttpOnly JWT cookie
   app.use(cookieParser());
+
+  // Serve uploaded files as static assets at /files/*
+  const storagePath = process.env.STORAGE_PATH || '/var/www/storage';
+  const ip=process.env.PUBLIC_URL
+  app.useStaticAssets(path.resolve(storagePath), { prefix: '/files' });
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -44,5 +51,6 @@ async function bootstrap() {
   await app.listen(process.env.PORT ?? 3000);
   console.log(`Application is running on: ${await app.getUrl()}`);
   console.log(`Swagger docs: ${await app.getUrl()}/docs`);
+  console.log(`Static files served from: ${storagePath} at /files on ip ${ip}`);
 }
 bootstrap();

@@ -3,6 +3,11 @@ export default () => ({
   databaseUrl: process.env.DATABASE_URL,
   jwtSecret: process.env.JWT_SECRET,
 
+  storage: {
+    path: process.env.STORAGE_PATH || '/var/www/storage',
+    publicUrl: process.env.PUBLIC_URL ,
+  },
+
   mailjet: {
     apiKey: process.env.MAILJET_API_KEY,
     secretKey: process.env.MAILJET_SECRET_KEY,

@@ -25,6 +25,14 @@ const BRIDE_SELECT = {
 export class BridesService {
   constructor(private prisma: PrismaService) {}
 
+  async getAllNames(): Promise<{ id: string; name: string }[]> {
+    return this.prisma.user.findMany({
+      where: { role: 'BRIDE' },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async getMyProfile(userId: string) {
     const bride = await this.prisma.user.findUnique({
       where: { id: userId },

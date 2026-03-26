@@ -49,6 +49,16 @@ export class BridesController {
 
   // ── Admin-facing ─────────────────────────────────────────────
 
+  @Get('names')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Admin — get all bride IDs and names (lightweight, no pagination)',
+  })
+  getAllNames() {
+    return this.bridesService.getAllNames();
+  }
+
   @Get()
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)

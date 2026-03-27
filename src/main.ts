@@ -10,6 +10,8 @@ const cookieParser = require('cookie-parser');
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  app.setGlobalPrefix('api'); 
+
   // CORS — allow frontend dev server and production origin
   app.enableCors({
     origin: [
@@ -25,7 +27,7 @@ async function bootstrap() {
 
   // Serve uploaded files as static assets at /files/*
   const storagePath = process.env.STORAGE_PATH || '/var/www/storage';
-  const ip=process.env.PUBLIC_URL
+  const ip = process.env.PUBLIC_URL;
   app.useStaticAssets(path.resolve(storagePath), { prefix: '/files' });
 
   app.useGlobalPipes(

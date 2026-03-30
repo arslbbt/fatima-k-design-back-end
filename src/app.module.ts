@@ -11,6 +11,7 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { FittingsModule } from './modules/fittings/fittings.module';
 import { InspoModule } from './modules/inspo/inspo.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { InspoModule } from './modules/inspo/inspo.module';
     DocumentsModule,
     FittingsModule,
     InspoModule,
+    PaymentsModule,
   ],
   providers: [PrismaService],
   exports: [PrismaService],

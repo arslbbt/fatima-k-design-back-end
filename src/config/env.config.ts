@@ -5,7 +5,11 @@ export default () => ({
 
   storage: {
     path: process.env.STORAGE_PATH || '/var/www/storage',
-    publicUrl: process.env.PUBLIC_URL ,
+    publicUrl: process.env.PUBLIC_URL,
+  },
+
+  frontend: {
+    url: process.env.FRONTEND_URL || 'http://localhost:3001',
   },
 
   mailjet: {

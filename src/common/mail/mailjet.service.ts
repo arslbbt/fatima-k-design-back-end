@@ -1,7 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Mailjet from 'node-mailjet';
-import { IMailService, AppointmentEmailContext } from './mail.interface';
+import {
+  IMailService,
+  AppointmentEmailContext,
+  PaymentEmailContext,
+} from './mail.interface';
 import { IcsService } from '../ics/ics.service';
 
 @Injectable()
@@ -176,6 +180,104 @@ export class MailjetService implements IMailService {
     );
   }
 
+  async sendPaymentRequest(
+    ctx: import('./mail.interface').PaymentEmailContext,
+  ): Promise<void> {
+    const amount = `$${Number(ctx.amount).toLocaleString()}`;
+    const due = ctx.dueDate
+      ? ctx.dueDate.toLocaleDateString('en-AU', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
+      : null;
+    const subject = `Payment Request: ${ctx.label} — Fatima K Design`;
+    const html = this.buildPaymentEmail({
+      heading: 'Payment Request',
+      intro: `Hi ${ctx.brideName}, a payment of <strong>${amount}</strong> has been added to your account.`,
+      label: ctx.label,
+      amount,
+      due,
+      notes: null,
+    });
+    await this.send(
+      { email: ctx.brideEmail, name: ctx.brideName },
+      subject,
+      html,
+    );
+  }
+
+  async sendPaymentReminder(
+    ctx: import('./mail.interface').PaymentEmailContext,
+  ): Promise<void> {
+    const amount = `$${Number(ctx.amount).toLocaleString()}`;
+    const due = ctx.dueDate
+      ? ctx.dueDate.toLocaleDateString('en-AU', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
+      : null;
+    const subject = `Payment Reminder: ${ctx.label} Due — Fatima K Design`;
+    const html = this.buildPaymentEmail({
+      heading: 'Payment Reminder',
+      intro: `Hi ${ctx.brideName}, this is a friendly reminder that your payment of <strong>${amount}</strong> is due${due ? ` on <strong>${due}</strong>` : ''}.`,
+      label: ctx.label,
+      amount,
+      due,
+      notes: null,
+    });
+    await this.send(
+      { email: ctx.brideEmail, name: ctx.brideName },
+      subject,
+      html,
+    );
+  }
+
+  private buildPaymentEmail(opts: {
+    heading: string;
+    intro: string;
+    label: string;
+    amount: string;
+    due: string | null;
+    notes: string | null;
+  }): string {
+    const { heading, intro, label, amount, due, notes } = opts;
+    return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#faf9f7;font-family:Georgia,serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 20px;">
+<table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:4px;overflow:hidden;">
+  <tr><td style="background:#b8860b;padding:32px 40px;">
+    <h1 style="margin:0;color:#fff;font-size:22px;font-weight:normal;letter-spacing:2px;">FATIMA K DESIGN</h1>
+  </td></tr>
+  <tr><td style="padding:40px;">
+    <h2 style="margin:0 0 16px;color:#2c2c2c;font-size:20px;font-weight:normal;">${heading}</h2>
+    <p style="margin:0 0 24px;color:#555;font-size:15px;line-height:1.6;">${intro}</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#faf9f7;border-left:3px solid #b8860b;margin-bottom:24px;">
+      <tr><td style="padding:8px 20px;"><p style="margin:0;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Payment Type</p>
+        <p style="margin:4px 0 0;color:#2c2c2c;font-size:15px;">${label}</p></td></tr>
+      <tr><td style="padding:8px 20px;"><p style="margin:0;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Amount</p>
+        <p style="margin:4px 0 0;color:#2c2c2c;font-size:15px;">${amount}</p></td></tr>
+      ${
+        due
+          ? `<tr><td style="padding:8px 20px;"><p style="margin:0;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Due Date</p>
+        <p style="margin:4px 0 0;color:#2c2c2c;font-size:15px;">${due}</p></td></tr>`
+          : ''
+      }
+      ${
+        notes
+          ? `<tr><td style="padding:8px 20px;"><p style="margin:0;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Notes</p>
+        <p style="margin:4px 0 0;color:#2c2c2c;font-size:15px;">${notes}</p></td></tr>`
+          : ''
+      }
+    </table>
+    <p style="margin:0;color:#aaa;font-size:13px;">If you have any questions, please contact us directly.</p>
+  </td></tr>
+  <tr><td style="background:#faf9f7;padding:20px 40px;text-align:center;">
+    <p style="margin:0;color:#bbb;font-size:12px;">© Fatima K Design — All rights reserved</p>
+  </td></tr>
+</table></td></tr></table></body></html>`;
+  }
+
   private buildAppointmentEmail(opts: {
     heading: string;
     intro: string;
@@ -225,55 +327,10 @@ export class MailjetService implements IMailService {
                             <p style="margin:4px 0 0;color:#2c2c2c;font-size:15px;">${this.formatDateTime(ctx.startTime)}</p>
                           </td>
                         </tr>
-                        ${
-                          ctx.location
-                            ? `
-                        <tr>
-                          <td style="padding:6px 20px;">
-                            <p style="margin:0;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Location</p>
-                            <p style="margin:4px 0 0;color:#2c2c2c;font-size:15px;">${ctx.location}</p>
-                          </td>
-                        </tr>`
-                            : ''
-                        }
-                        ${
-                          ctx.whatToBring
-                            ? `
-                        <tr>
-                          <td style="padding:6px 20px;">
-                            <p style="margin:0;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;">What to Bring</p>
-                            <p style="margin:4px 0 0;color:#2c2c2c;font-size:15px;">${ctx.whatToBring}</p>
-                          </td>
-                        </tr>`
-                            : ''
-                        }
                       </table>
-                      ${
-                        showCalendarButton
-                          ? `
-                      <table cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
-                        <tr>
-                          <td style="border-radius:3px;background:${accentColor};">
-                            <a href="${googleCalLink}" target="_blank"
-                              style="display:inline-block;padding:12px 24px;color:#fff;font-family:Georgia,serif;font-size:14px;text-decoration:none;letter-spacing:1px;">
-                              + Add to Google Calendar
-                            </a>
-                          </td>
-                        </tr>
-                      </table>
-                      <p style="margin:0 0 16px;color:#aaa;font-size:12px;">
-                        Or open the attached <strong>appointment.ics</strong> file to add to Apple Calendar, Outlook, or any other calendar app.
-                      </p>`
-                          : ''
-                      }
                       <p style="margin:0;color:#aaa;font-size:13px;">
                         If you have any questions, please reply to this email or contact us directly.
                       </p>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="background:#faf9f7;padding:20px 40px;text-align:center;">
-                      <p style="margin:0;color:#bbb;font-size:12px;">© Fatima K Design — All rights reserved</p>
                     </td>
                   </tr>
                 </table>

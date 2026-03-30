@@ -14,15 +14,22 @@ export interface AppointmentEmailContext {
   };
 }
 
-/**
- * IMailService — swap the implementation (Mailjet → SES → Resend)
- * without touching any caller. Just replace the provider in MailModule.
- */
+export interface PaymentEmailContext {
+  brideName: string;
+  brideEmail: string;
+  amount: number;
+  label: string;
+  dueDate: Date | null;
+  paymentUrl: string;
+}
+
 export interface IMailService {
   sendAppointmentConfirmation(ctx: AppointmentEmailContext): Promise<void>;
   sendAppointmentReminder(ctx: AppointmentEmailContext): Promise<void>;
   sendAppointmentCancellation(ctx: AppointmentEmailContext): Promise<void>;
   sendAppointmentUpdate(ctx: AppointmentEmailContext): Promise<void>;
+  sendPaymentRequest(ctx: PaymentEmailContext): Promise<void>;
+  sendPaymentReminder(ctx: PaymentEmailContext): Promise<void>;
 }
 
 export const MAIL_SERVICE = 'MAIL_SERVICE';

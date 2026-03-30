@@ -254,7 +254,11 @@ export class PaymentsService {
     const skip = (page - 1) * limit;
 
     const where: any = { role: Role.BRIDE };
-    if (search) {
+
+    // When not searching, only show brides who have at least one payment
+    if (!search) {
+      where.payments = { ...(where.payments ?? {}), some: {} };
+    } else {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
@@ -283,7 +287,7 @@ export class PaymentsService {
       } else if (status === 'paid') {
         where.payments = {
           every: { status: 'PAID' },
-          some: {}, // Ensure at least one payment exists
+          some: {},
         };
       }
     }

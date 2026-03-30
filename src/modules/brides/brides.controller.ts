@@ -36,6 +36,16 @@ export class BridesController {
     return this.bridesService.getMyProfile(user.id);
   }
 
+  @Get('journey')
+  @UseGuards(RolesGuard)
+  @Roles(Role.BRIDE)
+  @ApiOperation({
+    summary: 'Bride — get full dress journey with stages, fittings and photos',
+  })
+  getJourney(@CurrentUser() user: { id: string }) {
+    return this.bridesService.getJourney(user.id);
+  }
+
   @Patch('me')
   @UseGuards(RolesGuard)
   @Roles(Role.BRIDE)

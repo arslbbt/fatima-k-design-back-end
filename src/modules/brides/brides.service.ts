@@ -33,6 +33,145 @@ export class BridesService {
     });
   }
 
+  async getJourney(brideId: string) {
+    const STAGE_ORDER = [
+      'CONSULTATION',
+      'FIRST_FITTING',
+      'SECOND_FITTING',
+      'THIRD_FITTING',
+      'FINAL_FITTING',
+      'ALTERATION',
+      'COLLECTION_READY',
+    ] as const;
+
+    const STAGE_LABELS: Record<string, string> = {
+      CONSULTATION: 'Consultation',
+      FIRST_FITTING: '1st Fitting',
+      SECOND_FITTING: '2nd Fitting',
+      THIRD_FITTING: '3rd Fitting',
+      FINAL_FITTING: 'Final Fitting',
+      ALTERATION: 'Alteration',
+      COLLECTION_READY: 'Collection Ready',
+    };
+
+    const TITLE_LABELS: Record<string, string> = {
+      ...STAGE_LABELS,
+      CUSTOM: 'Custom',
+    };
+
+    const bride = await this.prisma.user.findFirst({
+      where: { id: brideId, role: 'BRIDE' },
+      select: {
+        id: true,
+        name: true,
+        brideProfile: { select: { stage: true } },
+        fittings: {
+          include: {
+            photos: true,
+            appointment: {
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                location: true,
+                startTime: true,
+                endTime: true,
+                status: true,
+                whatToBring: true,
+              },
+            },
+          },
+          orderBy: { fittingNumber: 'asc' },
+        },
+        appointments: {
+          where: { status: { in: ['SCHEDULED', 'RESCHEDULED'] } },
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            location: true,
+            startTime: true,
+            endTime: true,
+            status: true,
+            whatToBring: true,
+          },
+          orderBy: { startTime: 'asc' },
+        },
+      },
+    });
+
+    if (!bride) throw new NotFoundException('Bride not found');
+
+    // ── Progress card: fixed 7 stages ──────────────────────────
+    const currentStage = bride.brideProfile?.stage ?? 'CONSULTATION';
+    const currentIdx = STAGE_ORDER.indexOf(currentStage as any);
+    const progressPct = Math.round(
+      ((currentIdx + 1) / STAGE_ORDER.length) * 100,
+    );
+
+    const stageProgress = STAGE_ORDER.map((key, i) => ({
+      key,
+      label: STAGE_LABELS[key],
+      status:
+        i < currentIdx ? 'done' : i === currentIdx ? 'current' : 'upcoming',
+    }));
+
+    // ── Timeline: fittings with completed appointments ──────────
+    const completedEvents = bride.fittings
+      .filter((f) => f.appointment?.status === 'COMPLETED')
+      .map((f) => ({
+        type: 'completed' as const,
+        appointmentId: f.appointment!.id,
+        title: TITLE_LABELS[f.appointment!.title] ?? f.appointment!.title,
+        description: f.appointment!.description,
+        location: f.appointment!.location,
+        startTime: f.appointment!.startTime,
+        endTime: f.appointment!.endTime,
+        whatToBring: f.appointment!.whatToBring,
+        fittingId: f.id,
+        fittingNumber: f.fittingNumber,
+        notes: f.notes,
+        photos: f.photos.map((p) => ({
+          id: p.id,
+          imageUrl: p.imageUrl,
+          caption: p.caption,
+        })),
+      }))
+      .sort(
+        (a, b) =>
+          new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+      );
+
+    // ── Timeline: upcoming appointments (today or future) ───────
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const upcomingAppts = bride.appointments
+      .filter((a) => new Date(a.startTime) >= now)
+      .map((a, i) => ({
+        type: i === 0 ? ('in-progress' as const) : ('coming-soon' as const),
+        appointmentId: a.id,
+        title: TITLE_LABELS[a.title] ?? a.title,
+        description: a.description,
+        location: a.location,
+        startTime: a.startTime,
+        endTime: a.endTime,
+        whatToBring: a.whatToBring,
+        fittingId: null,
+        fittingNumber: null,
+        notes: null,
+        photos: [],
+      }));
+
+    return {
+      currentStage,
+      currentStageIndex: currentIdx,
+      progressPct,
+      stageProgress,
+      events: [...completedEvents, ...upcomingAppts],
+    };
+  }
+
   async getMyProfile(userId: string) {
     const bride = await this.prisma.user.findUnique({
       where: { id: userId },

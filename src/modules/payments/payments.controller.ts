@@ -75,11 +75,18 @@ export class PaymentsController {
   @Roles(Role.ADMIN)
   @Patch(':id')
   @ApiOperation({
-    summary: 'Admin — Update payment amount, due date or notes (unpaid only)',
+    summary:
+      'Admin — Update payment (amount, due date, notes, or mark as paid)',
   })
   update(
     @Param('id') id: string,
-    @Body() body: { amount?: number; dueDate?: string; notes?: string },
+    @Body()
+    body: {
+      amount?: number;
+      dueDate?: string;
+      notes?: string;
+      markAsPaid?: boolean;
+    },
   ) {
     return this.paymentsService.updatePayment(id, body);
   }

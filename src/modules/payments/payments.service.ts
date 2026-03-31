@@ -85,7 +85,12 @@ export class PaymentsService {
 
   async updatePayment(
     id: string,
-    data: { amount?: number; dueDate?: string; notes?: string },
+    data: {
+      amount?: number;
+      dueDate?: string;
+      notes?: string;
+      markAsPaid?: boolean;
+    },
   ) {
     const payment = await this.prisma.payment.findUnique({ where: { id } });
     if (!payment) throw new NotFoundException('Payment not found');
@@ -100,6 +105,10 @@ export class PaymentsService {
         ...(data.amount !== undefined && { amount: data.amount }),
         ...(data.dueDate !== undefined && { dueDate: new Date(data.dueDate) }),
         ...(data.notes !== undefined && { notes: data.notes }),
+        ...(data.markAsPaid && {
+          status: PaymentStatus.PAID,
+          paidDate: new Date(),
+        }),
       },
     });
   }

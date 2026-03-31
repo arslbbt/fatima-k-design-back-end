@@ -3,11 +3,11 @@ import {
   Post,
   Get,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
   UseGuards,
-  Inject,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiCookieAuth } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service';
@@ -60,7 +60,9 @@ export class PaymentsController {
   @Get('monthly-revenue')
   @ApiOperation({ summary: 'Admin — Get monthly revenue for graph' })
   getMonthlyRevenue(@Query('year') year?: string) {
-    return this.paymentsService.getMonthlyRevenue(year ? parseInt(year) : undefined);
+    return this.paymentsService.getMonthlyRevenue(
+      year ? parseInt(year) : undefined,
+    );
   }
 
   @Roles(Role.ADMIN)
@@ -71,8 +73,22 @@ export class PaymentsController {
   }
 
   @Roles(Role.ADMIN)
+  @Patch(':id')
+  @ApiOperation({
+    summary: 'Admin — Update payment amount, due date or notes (unpaid only)',
+  })
+  update(
+    @Param('id') id: string,
+    @Body() body: { amount?: number; dueDate?: string; notes?: string },
+  ) {
+    return this.paymentsService.updatePayment(id, body);
+  }
+
+  @Roles(Role.ADMIN)
   @Get('brides-tracking')
-  @ApiOperation({ summary: 'Admin — List brides with payment summaries (paginated)' })
+  @ApiOperation({
+    summary: 'Admin — List brides with payment summaries (paginated)',
+  })
   getBridesTracking(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -89,7 +105,9 @@ export class PaymentsController {
 
   @Roles(Role.ADMIN)
   @Get('brides-tracking/all')
-  @ApiOperation({ summary: 'Admin — Get all brides tracking for overview cards (unpaginated)' })
+  @ApiOperation({
+    summary: 'Admin — Get all brides tracking for overview cards (unpaginated)',
+  })
   getAllBridesTracking() {
     return this.paymentsService.getAllBridesTracking();
   }
@@ -99,6 +117,13 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Admin — Send payment reminder email' })
   sendReminder(@Param('id') id: string) {
     return this.paymentsService.sendReminder(id);
+  }
+
+  @Roles(Role.ADMIN)
+  @Delete(':id')
+  @ApiOperation({ summary: 'Admin — Delete a payment (unpaid only)' })
+  remove(@Param('id') id: string) {
+    return this.paymentsService.remove(id);
   }
 
   @Roles(Role.BRIDE)

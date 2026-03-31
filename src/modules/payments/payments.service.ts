@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, Inject, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Inject,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { PaymentStatus, PaymentType, Role } from '@prisma/client';
@@ -69,19 +75,31 @@ export class PaymentsService {
   }
 
   async markAsPaid(id: string) {
-    const payment = await this.prisma.payment.findUnique({
+    const payment = await this.prisma.payment.findUnique({ where: { id } });
+    if (!payment) throw new NotFoundException('Payment not found');
+    return this.prisma.payment.update({
       where: { id },
+      data: { status: PaymentStatus.PAID, paidDate: new Date() },
     });
+  }
 
-    if (!payment) {
-      throw new NotFoundException('Payment not found');
+  async updatePayment(
+    id: string,
+    data: { amount?: number; dueDate?: string; notes?: string },
+  ) {
+    const payment = await this.prisma.payment.findUnique({ where: { id } });
+    if (!payment) throw new NotFoundException('Payment not found');
+    if (payment.status === PaymentStatus.PAID) {
+      throw new BadRequestException(
+        'Cannot edit a payment that has already been paid',
+      );
     }
-
     return this.prisma.payment.update({
       where: { id },
       data: {
-        status: PaymentStatus.PAID,
-        paidDate: new Date(),
+        ...(data.amount !== undefined && { amount: data.amount }),
+        ...(data.dueDate !== undefined && { dueDate: new Date(data.dueDate) }),
+        ...(data.notes !== undefined && { notes: data.notes }),
       },
     });
   }
@@ -386,6 +404,18 @@ export class PaymentsService {
             : 'due',
       };
     });
+  }
+
+  async remove(id: string) {
+    const payment = await this.prisma.payment.findUnique({ where: { id } });
+    if (!payment) throw new NotFoundException('Payment not found');
+    if (payment.status === PaymentStatus.PAID) {
+      throw new BadRequestException(
+        'Cannot delete a payment that has already been paid',
+      );
+    }
+    await this.prisma.payment.delete({ where: { id } });
+    return { message: 'Payment deleted' };
   }
 
   async getBridePayments(brideId: string) {

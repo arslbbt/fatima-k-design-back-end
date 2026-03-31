@@ -111,15 +111,6 @@ export class PaymentsController {
   }
 
   @Roles(Role.ADMIN)
-  @Get('brides-tracking/all')
-  @ApiOperation({
-    summary: 'Admin — Get all brides tracking for overview cards (unpaginated)',
-  })
-  getAllBridesTracking() {
-    return this.paymentsService.getAllBridesTracking();
-  }
-
-  @Roles(Role.ADMIN)
   @Post(':id/remind')
   @ApiOperation({ summary: 'Admin — Send payment reminder email' })
   sendReminder(@Param('id') id: string) {

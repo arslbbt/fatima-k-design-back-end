@@ -210,18 +210,22 @@ export class PaymentsService {
       .reduce((sum, p) => sum + Number(p.amount), 0);
 
     const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const paymentsDue = allPayments.filter(
       (p) =>
         p.status === PaymentStatus.PENDING &&
         p.dueDate &&
-        p.dueDate.getMonth() === now.getMonth() &&
-        p.dueDate.getFullYear() === now.getFullYear(),
+        p.dueDate >= startOfMonth &&
+        p.dueDate < startOfNextMonth,
     ).length;
-
     const overdueCount = allPayments.filter(
       (p) =>
         p.status === ('OVERDUE' as any) ||
-        (p.status === PaymentStatus.PENDING && p.dueDate && p.dueDate < now),
+        (p.status === PaymentStatus.PENDING &&
+          p.dueDate &&
+          new Date(p.dueDate) < today),
     ).length;
 
     return {
@@ -282,7 +286,9 @@ export class PaymentsService {
 
     const where: any = { role: Role.BRIDE };
 
-    // When not searching, only show brides who have at least one payment
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
     if (!search) {
       where.payments = { ...(where.payments ?? {}), some: {} };
     } else {
@@ -292,15 +298,16 @@ export class PaymentsService {
       ];
     }
 
-    // Status filtering logic
     if (status && status !== 'All') {
-      const now = new Date();
       if (status === 'overdue') {
         where.payments = {
           some: {
             OR: [
               { status: 'OVERDUE' as any },
-              { status: PaymentStatus.PENDING, dueDate: { lt: now } },
+              {
+                status: PaymentStatus.PENDING,
+                dueDate: { lt: today },
+              },
             ],
           },
         };
@@ -308,7 +315,7 @@ export class PaymentsService {
         where.payments = {
           some: {
             status: 'PENDING',
-            OR: [{ dueDate: null }, { dueDate: { gte: now } }],
+            OR: [{ dueDate: null }, { dueDate: { gte: today } }],
           },
         };
       } else if (status === 'paid') {
@@ -340,19 +347,25 @@ export class PaymentsService {
         (sum, p) => sum + Number(p.amount),
         0,
       );
+
       const paidAmount = bride.payments
         .filter((p) => p.status === PaymentStatus.PAID)
         .reduce((sum, p) => sum + Number(p.amount), 0);
 
-      const now = new Date();
       const hasOverdue = bride.payments.some(
         (p) =>
           p.status === ('OVERDUE' as any) ||
-          (p.status === PaymentStatus.PENDING && p.dueDate && p.dueDate < now),
+          (p.status === PaymentStatus.PENDING &&
+            p.dueDate &&
+            new Date(p.dueDate) < today),
       );
+
       const hasDue = bride.payments.some(
-        (p) => p.status === 'PENDING' && (!p.dueDate || p.dueDate >= now),
+        (p) =>
+          p.status === 'PENDING' &&
+          (!p.dueDate || new Date(p.dueDate) >= today),
       );
+
       const isFullyPaid =
         bride.payments.length > 0 &&
         bride.payments.every((p) => p.status === 'PAID');
@@ -382,37 +395,6 @@ export class PaymentsService {
         totalPages: Math.ceil(total / limit),
       },
     };
-  }
-
-  async getAllBridesTracking() {
-    const brides = await this.prisma.user.findMany({
-      where: { role: Role.BRIDE },
-      include: {
-        payments: true,
-      },
-    });
-
-    return brides.map((bride) => {
-      const totalAmount = bride.payments.reduce(
-        (sum, p) => sum + Number(p.amount),
-        0,
-      );
-      const paidAmount = bride.payments
-        .filter((p) => p.status === PaymentStatus.PAID)
-        .reduce((sum, p) => sum + Number(p.amount), 0);
-
-      return {
-        id: bride.id,
-        name: bride.name,
-        total: totalAmount,
-        paid: paidAmount,
-        status:
-          bride.payments.length > 0 &&
-          bride.payments.every((p) => p.status === 'PAID')
-            ? 'paid'
-            : 'due',
-      };
-    });
   }
 
   async remove(id: string) {

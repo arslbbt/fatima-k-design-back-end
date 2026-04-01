@@ -259,15 +259,25 @@ export class BridesService {
       this.prisma.user.count({ where }),
       this.prisma.user.findMany({
         where,
-        select: BRIDE_SELECT,
+        select: {
+          ...BRIDE_SELECT,
+          payments: { select: { amount: true, status: true } },
+        },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
     ]);
 
+    const items = data.map(({ payments, ...bride }) => {
+      const outstanding = payments
+        .filter((p) => p.status !== 'PAID')
+        .reduce((sum, p) => sum + Number(p.amount), 0);
+      return { ...bride, outstanding };
+    });
+
     return {
-      data,
+      data: items,
       meta: {
         total,
         page,

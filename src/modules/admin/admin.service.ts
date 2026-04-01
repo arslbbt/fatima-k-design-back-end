@@ -267,8 +267,16 @@ export class AdminService {
     );
 
     // ── Recent brides (max 6, sorted by wedding date closest first) ──
+    const today = new Date();
     const recentBrides = await this.prisma.user.findMany({
-      where: { role: 'BRIDE' },
+      where: {
+        role: 'BRIDE',
+        brideProfile: {
+          weddingDate: {
+            gte: today, // only future or today
+          },
+        },
+      },
       select: {
         id: true,
         name: true,

@@ -195,6 +195,194 @@ export class AdminService {
     return { message: 'Admin removed successfully' };
   }
 
+  async getDashboard() {
+    const now = new Date();
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+    );
+    const startOfWeek = new Date(startOfToday);
+    startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay()); // Sunday
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59);
+
+    // ── Brides ──────────────────────────────────────────────────
+    const [totalBrides, newBridesThisMonth] = await this.prisma.$transaction([
+      this.prisma.user.count({ where: { role: 'BRIDE' } }),
+      this.prisma.user.count({
+        where: { role: 'BRIDE', createdAt: { gte: startOfMonth } },
+      }),
+    ]);
+
+    // ── Appointments this week ───────────────────────────────────
+    const weekAppts = await this.prisma.appointment.findMany({
+      where: {
+        startTime: { gte: startOfWeek, lte: endOfWeek },
+        status: { in: ['SCHEDULED', 'RESCHEDULED'] },
+      },
+      include: {
+        bride: { select: { id: true, name: true } },
+      },
+      orderBy: { startTime: 'asc' },
+    });
+
+    const nextAppt = await this.prisma.appointment.findFirst({
+      where: {
+        startTime: { gte: startOfToday },
+        status: { in: ['SCHEDULED', 'RESCHEDULED'] },
+      },
+      include: { bride: { select: { id: true, name: true } } },
+      orderBy: { startTime: 'asc' },
+    });
+
+    // ── Payments ─────────────────────────────────────────────────
+    const allPayments = await this.prisma.payment.findMany();
+    const paidThisMonth = allPayments
+      .filter(
+        (p) =>
+          p.status === 'PAID' &&
+          p.paidDate &&
+          p.paidDate >= startOfMonth &&
+          p.paidDate <= endOfMonth,
+      )
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+
+    const outstanding = allPayments
+      .filter((p) => p.status !== 'PAID')
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+
+    const outstandingBrideIds = new Set(
+      allPayments.filter((p) => p.status !== 'PAID').map((p) => p.brideId),
+    );
+
+    // ── Recent brides (max 6, sorted by wedding date closest first) ──
+    const recentBrides = await this.prisma.user.findMany({
+      where: { role: 'BRIDE' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+        brideProfile: {
+          select: { stage: true, weddingDate: true, phone: true },
+        },
+        payments: { select: { amount: true, status: true } },
+      },
+      orderBy: [{ brideProfile: { weddingDate: 'asc' } }],
+      take: 6,
+    });
+
+    const bridesWithBalance = recentBrides.map((b) => {
+      const total = b.payments.reduce((s, p) => s + Number(p.amount), 0);
+      const paid = b.payments
+        .filter((p) => p.status === 'PAID')
+        .reduce((s, p) => s + Number(p.amount), 0);
+      return {
+        id: b.id,
+        name: b.name,
+        email: b.email,
+        createdAt: b.createdAt,
+        brideProfile: b.brideProfile,
+        balance: total - paid,
+        hasDue: total - paid > 0,
+      };
+    });
+
+    // ── Recent activity (last 10 events across appointments, payments, fittings) ──
+    const [recentApptChanges, recentPaidPayments, recentFittingPhotos] =
+      await this.prisma.$transaction([
+        this.prisma.appointment.findMany({
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          include: { bride: { select: { name: true } } },
+        }),
+        this.prisma.payment.findMany({
+          where: { status: 'PAID' },
+          orderBy: { paidDate: 'desc' },
+          take: 5,
+          include: { bride: { select: { name: true } } },
+        }),
+        this.prisma.fittingPhoto.findMany({
+          orderBy: { uploadedAt: 'desc' },
+          take: 5,
+          include: {
+            fitting: {
+              include: { bride: { select: { name: true } } },
+            },
+          },
+        }),
+      ]);
+
+    type ActivityItem = {
+      type: 'appointment' | 'payment' | 'photo';
+      label: string;
+      brideName: string;
+      timestamp: Date;
+    };
+
+    const activity: ActivityItem[] = [
+      ...recentApptChanges.map((a) => ({
+        type: 'appointment' as const,
+        label: `Appointment scheduled: ${a.title
+          .replace(/_/g, ' ')
+          .toLowerCase()
+          .replace(/\b\w/g, (c) => c.toUpperCase())}`,
+        brideName: a.bride.name,
+        timestamp: a.createdAt,
+      })),
+      ...recentPaidPayments.map((p) => ({
+        type: 'payment' as const,
+        label: `Payment recorded: $${Number(p.amount).toLocaleString()}`,
+        brideName: p.bride.name,
+        timestamp: p.paidDate ?? p.createdAt,
+      })),
+      ...recentFittingPhotos.map((ph) => ({
+        type: 'photo' as const,
+        label: `Fitting photo uploaded`,
+        brideName: ph.fitting.bride.name,
+        timestamp: ph.uploadedAt,
+      })),
+    ]
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+      .slice(0, 3);
+
+    return {
+      totalBrides,
+      newBridesThisMonth,
+      weekApptsCount: weekAppts.length,
+      weekAppts: weekAppts.slice(0, 4).map((a) => ({
+        id: a.id,
+        title: a.title,
+        brideName: a.bride.name,
+        startTime: a.startTime,
+      })),
+      nextAppt: nextAppt
+        ? {
+            id: nextAppt.id,
+            title: nextAppt.title,
+            brideName: nextAppt.bride.name,
+            startTime: nextAppt.startTime,
+          }
+        : null,
+      paidThisMonth,
+      outstanding,
+      outstandingBridesCount: outstandingBrideIds.size,
+      brides: bridesWithBalance,
+      recentActivity: activity,
+    };
+  }
+
   async resetUserPassword(
     id: string,
     requestingAdminId: string,

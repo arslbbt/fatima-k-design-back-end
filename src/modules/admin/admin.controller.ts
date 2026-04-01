@@ -42,6 +42,12 @@ export class AdminController {
     return this.adminService.getAdminById(user.id);
   }
 
+  @Get('dashboard')
+  @ApiOperation({ summary: 'Admin — get dashboard stats and recent data' })
+  getDashboard() {
+    return this.adminService.getDashboard();
+  }
+
   @Patch('me')
   @ApiOperation({ summary: 'Update own admin profile (name / email)' })
   updateMe(@CurrentUser() user: { id: string }, @Body() dto: UpdateAdminDto) {

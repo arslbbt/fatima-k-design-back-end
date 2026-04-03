@@ -25,11 +25,25 @@ const BRIDE_SELECT = {
 export class BridesService {
   constructor(private prisma: PrismaService) {}
 
-  async getAllNames(): Promise<{ id: string; name: string }[]> {
+  async getAllNames(params?: {
+    search?: string;
+    limit?: number;
+  }): Promise<{ id: string; name: string; email: string }[]> {
+    const limit = params?.limit ?? 10;
+    const where: any = { role: 'BRIDE' };
+
+    if (params?.search) {
+      where.OR = [
+        { name: { contains: params.search, mode: 'insensitive' } },
+        { email: { contains: params.search, mode: 'insensitive' } },
+      ];
+    }
+
     return this.prisma.user.findMany({
-      where: { role: 'BRIDE' },
-      select: { id: true, name: true },
+      where,
+      select: { id: true, name: true, email: true },
       orderBy: { name: 'asc' },
+      take: limit,
     });
   }
 

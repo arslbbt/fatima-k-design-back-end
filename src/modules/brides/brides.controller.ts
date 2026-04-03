@@ -63,10 +63,16 @@ export class BridesController {
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @ApiOperation({
-    summary: 'Admin — get all bride IDs and names (lightweight, no pagination)',
+    summary: 'Admin — get bride IDs, names and emails (max 10, searchable)',
   })
-  getAllNames() {
-    return this.bridesService.getAllNames();
+  getAllNames(
+    @Query('search') search?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.bridesService.getAllNames({
+      search,
+      limit: limit ? parseInt(limit) : undefined,
+    });
   }
 
   @Get()

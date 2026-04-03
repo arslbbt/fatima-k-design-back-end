@@ -111,10 +111,12 @@ export class PaymentsController {
   }
 
   @Roles(Role.ADMIN)
-  @Post(':id/remind')
-  @ApiOperation({ summary: 'Admin — Send payment reminder email' })
-  sendReminder(@Param('id') id: string) {
-    return this.paymentsService.sendReminder(id);
+  @Post('bride/:brideId/remind')
+  @ApiOperation({
+    summary: 'Admin — Send payment reminder email for all unpaid payments',
+  })
+  sendReminder(@Param('brideId') brideId: string) {
+    return this.paymentsService.sendReminder(brideId);
   }
 
   @Roles(Role.ADMIN)

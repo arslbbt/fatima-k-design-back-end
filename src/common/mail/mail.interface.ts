@@ -23,13 +23,24 @@ export interface PaymentEmailContext {
   paymentUrl: string;
 }
 
+export interface PaymentReminderContext {
+  brideName: string;
+  brideEmail: string;
+  payments: Array<{
+    amount: number;
+    label: string;
+    dueDate: Date;
+  }>;
+  paymentUrl: string;
+}
+
 export interface IMailService {
   sendAppointmentConfirmation(ctx: AppointmentEmailContext): Promise<void>;
   sendAppointmentReminder(ctx: AppointmentEmailContext): Promise<void>;
   sendAppointmentCancellation(ctx: AppointmentEmailContext): Promise<void>;
   sendAppointmentUpdate(ctx: AppointmentEmailContext): Promise<void>;
   sendPaymentRequest(ctx: PaymentEmailContext): Promise<void>;
-  sendPaymentReminder(ctx: PaymentEmailContext): Promise<void>;
+  sendPaymentReminder(ctx: PaymentReminderContext): Promise<void>;
 }
 
 export const MAIL_SERVICE = 'MAIL_SERVICE';

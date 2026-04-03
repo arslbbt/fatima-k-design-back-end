@@ -5,6 +5,7 @@ import {
   IMailService,
   AppointmentEmailContext,
   PaymentEmailContext,
+  PaymentReminderContext,
 } from './mail.interface';
 import { IcsService } from '../ics/ics.service';
 
@@ -207,26 +208,96 @@ export class MailjetService implements IMailService {
     );
   }
 
-  async sendPaymentReminder(
-    ctx: import('./mail.interface').PaymentEmailContext,
-  ): Promise<void> {
-    const amount = `$${Number(ctx.amount).toLocaleString()}`;
-    const due = ctx.dueDate
-      ? ctx.dueDate.toLocaleDateString('en-AU', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-        })
-      : null;
-    const subject = `Payment Reminder: ${ctx.label} Due — Fatima K Design`;
-    const html = this.buildPaymentEmail({
-      heading: 'Payment Reminder',
-      intro: `Hi ${ctx.brideName}, this is a friendly reminder that your payment of <strong>${amount}</strong> is due${due ? ` on <strong>${due}</strong>` : ''}.`,
-      label: ctx.label,
-      amount,
-      due,
-      notes: null,
-    });
+  async sendPaymentReminder(ctx: PaymentReminderContext): Promise<void> {
+    const totalAmount = ctx.payments.reduce(
+      (sum, p) => sum + Number(p.amount),
+      0,
+    );
+    const subject = `Payment Reminder: ${ctx.payments.length} Payment${ctx.payments.length > 1 ? 's' : ''} Due — Fatima K Design`;
+
+    const paymentsHtml = ctx.payments
+      .map((p) => {
+        const amount = Number(p.amount);
+        return `
+      <tr>
+        <td style="padding:16px 20px;border-bottom:1px solid #F0EBE4;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="width:70%;">
+                <p style="margin:0 0 4px;color:#2C2C2C;font-size:15px;font-weight:600;">${p.label}</p>
+                <p style="margin:0;color:#888;font-size:13px;">Due: ${p.dueDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+              </td>
+              <td style="width:30%;text-align:right;">
+                <p style="margin:0;color:#D4A373;font-size:18px;font-weight:600;">$${amount.toLocaleString()}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    `;
+      })
+      .join('');
+
+    const html = `<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#FAF8F5;font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td align="center" style="padding:40px 20px;">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#D4A373,#C8956A);padding:40px 32px;text-align:center;">
+            <h1 style="margin:0;color:#FFFFFF;font-family:'Cormorant Garamond',Georgia,serif;font-size:28px;font-weight:500;letter-spacing:1px;">FATIMA K DESIGN</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:40px 32px;">
+            <h2 style="margin:0 0 16px;color:#2C2C2C;font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:500;">Payment Reminder</h2>
+            <p style="margin:0 0 24px;color:#555;font-size:15px;line-height:1.6;">Hi ${ctx.brideName},</p>
+            <p style="margin:0 0 32px;color:#555;font-size:15px;line-height:1.6;">This is a friendly reminder that you have ${ctx.payments.length} pending payment${ctx.payments.length > 1 ? 's' : ''}. Please review the details below:</p>
+            
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#FEFBF9;border:1px solid #E8E0D5;border-radius:8px;margin-bottom:32px;overflow:hidden;">
+              ${paymentsHtml}
+              <tr>
+                <td style="padding:20px;background:#F5EFE9;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="width:70%;">
+                        <p style="margin:0;color:#2C2C2C;font-size:16px;font-weight:600;">Total Due</p>
+                      </td>
+                      <td style="width:30%;text-align:right;">
+                        <p style="margin:0;color:#D4A373;font-size:22px;font-weight:700;">$${totalAmount.toLocaleString()}</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center" style="padding:0 0 24px;">
+                  <a href="${ctx.paymentUrl}" style="display:inline-block;padding:14px 32px;background:#2C2C2C;color:#FFFFFF;text-decoration:none;border-radius:8px;font-size:15px;font-weight:600;">View Payment Details</a>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0;color:#888;font-size:13px;line-height:1.6;">If you have any questions or need to discuss payment arrangements, please don't hesitate to contact us.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#FAF8F5;padding:24px 32px;text-align:center;border-top:1px solid #E8E0D5;">
+            <p style="margin:0 0 8px;color:#A67C52;font-size:13px;font-weight:500;">Fatima K Design</p>
+            <p style="margin:0;color:#AAAAAA;font-size:12px;">© ${new Date().getFullYear()} All rights reserved</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
     await this.send(
       { email: ctx.brideEmail, name: ctx.brideName },
       subject,

@@ -113,37 +113,58 @@ export class PaymentsService {
     });
   }
 
-  async sendReminder(id: string) {
-    const payment = await this.prisma.payment.findUnique({
-      where: { id },
-      include: { bride: true },
+  async sendReminder(brideId: string) {
+    const bride = await this.prisma.user.findUnique({
+      where: { id: brideId },
+      include: {
+        payments: {
+          where: { status: PaymentStatus.PENDING },
+          orderBy: { dueDate: 'asc' },
+        },
+      },
     });
 
-    if (!payment) {
-      throw new NotFoundException('Payment not found');
+    if (!bride) {
+      throw new NotFoundException('Bride not found');
+    }
+
+    if (bride.payments.length === 0) {
+      throw new BadRequestException('No pending payments to remind for');
     }
 
     const portalUrl = `${this.config.get<string>('frontend.url')}/bride/payments`;
+
+    // Prepare all unpaid payments data
+    const unpaidPayments = bride.payments.map((p) => ({
+      amount: Number(p.amount),
+      label: this.getPaymentLabel(p.paymentType),
+      dueDate: p.dueDate || new Date(),
+    }));
+
     try {
       await this.mailService.sendPaymentReminder({
-        brideName: payment.bride.name,
-        brideEmail: payment.bride.email,
-        amount: Number(payment.amount),
-        label: this.getPaymentLabel(payment.paymentType),
-        dueDate: payment.dueDate || new Date(),
+        brideName: bride.name,
+        brideEmail: bride.email,
+        payments: unpaidPayments,
         paymentUrl: portalUrl,
       });
     } catch (err) {
       this.logger.error('Failed to send payment reminder email', err);
-      throw err; // re-throw for reminder — caller should know it failed
+      throw err;
     }
 
-    return this.prisma.payment.update({
-      where: { id },
+    // Update reminderSentAt for all pending payments
+    await this.prisma.payment.updateMany({
+      where: {
+        brideId,
+        status: PaymentStatus.PENDING,
+      },
       data: {
         reminderSentAt: new Date(),
       } as any,
     });
+
+    return { message: 'Reminder sent successfully' };
   }
 
   async getAdminPayments(query: {

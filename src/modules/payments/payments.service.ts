@@ -92,14 +92,18 @@ export class PaymentsService {
       markAsPaid?: boolean;
     },
   ) {
-    const payment = await this.prisma.payment.findUnique({ where: { id } });
+    const payment = await this.prisma.payment.findUnique({
+      where: { id },
+      include: { bride: true },
+    });
     if (!payment) throw new NotFoundException('Payment not found');
     if (payment.status === PaymentStatus.PAID) {
       throw new BadRequestException(
         'Cannot edit a payment that has already been paid',
       );
     }
-    return this.prisma.payment.update({
+
+    const updatedPayment = await this.prisma.payment.update({
       where: { id },
       data: {
         ...(data.amount !== undefined && { amount: data.amount }),
@@ -110,7 +114,27 @@ export class PaymentsService {
           paidDate: new Date(),
         }),
       },
+      include: { bride: true },
     });
+
+    // Send email notification about payment update (only if not marked as paid)
+    if (!data.markAsPaid) {
+      const portalUrl = `${this.config.get<string>('frontend.url')}/bride/payments`;
+      try {
+        await this.mailService.sendPaymentRequest({
+          brideName: payment.bride.name,
+          brideEmail: payment.bride.email,
+          amount: data.amount ?? Number(payment.amount),
+          label: this.getPaymentLabel(payment.paymentType),
+          dueDate: data.dueDate ? new Date(data.dueDate) : payment.dueDate,
+          paymentUrl: portalUrl,
+        });
+      } catch (err) {
+        this.logger.error('Failed to send payment update email', err);
+      }
+    }
+
+    return updatedPayment;
   }
 
   async sendReminder(brideId: string) {

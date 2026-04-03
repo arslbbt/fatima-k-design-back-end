@@ -121,7 +121,6 @@ export class MailjetService implements IMailService {
       heading: 'Appointment Confirmed',
       intro: `Hi ${ctx.brideName}, your appointment has been confirmed. You'll find a calendar invite attached.`,
       ctx,
-      accentColor: '#b8860b',
     });
     await this.send(
       { email: ctx.brideEmail, name: ctx.brideName },
@@ -137,7 +136,6 @@ export class MailjetService implements IMailService {
       heading: 'Appointment Updated',
       intro: `Hi ${ctx.brideName}, your appointment details have been updated. The attached calendar invite will update your existing event.`,
       ctx,
-      accentColor: '#b8860b',
     });
     await this.send(
       { email: ctx.brideEmail, name: ctx.brideName },
@@ -153,7 +151,6 @@ export class MailjetService implements IMailService {
       heading: 'Appointment Reminder',
       intro: `Hi ${ctx.brideName}, just a reminder that your appointment is in 48 hours.`,
       ctx,
-      accentColor: '#8b6914',
     });
     // No ICS on reminders — event is already in their calendar
     await this.send(
@@ -171,7 +168,6 @@ export class MailjetService implements IMailService {
       heading: 'Appointment Cancelled',
       intro: `Hi ${ctx.brideName}, your appointment has been cancelled. Please contact us to reschedule.`,
       ctx,
-      accentColor: '#888',
     });
     await this.send(
       { email: ctx.brideEmail, name: ctx.brideName },
@@ -181,25 +177,15 @@ export class MailjetService implements IMailService {
     );
   }
 
-  async sendPaymentRequest(
-    ctx: import('./mail.interface').PaymentEmailContext,
-  ): Promise<void> {
-    const amount = `$${Number(ctx.amount).toLocaleString()}`;
-    const due = ctx.dueDate
-      ? ctx.dueDate.toLocaleDateString('en-AU', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-        })
-      : null;
+  async sendPaymentRequest(ctx: PaymentEmailContext): Promise<void> {
+    const amount = Number(ctx.amount);
     const subject = `Payment Request: ${ctx.label} — Fatima K Design`;
-    const html = this.buildPaymentEmail({
-      heading: 'Payment Request',
-      intro: `Hi ${ctx.brideName}, a payment of <strong>${amount}</strong> has been added to your account.`,
+    const html = this.buildPaymentRequestEmail({
+      brideName: ctx.brideName,
       label: ctx.label,
       amount,
-      due,
-      notes: null,
+      dueDate: ctx.dueDate,
+      paymentUrl: ctx.paymentUrl,
     });
     await this.send(
       { email: ctx.brideEmail, name: ctx.brideName },
@@ -305,111 +291,251 @@ export class MailjetService implements IMailService {
     );
   }
 
-  private buildPaymentEmail(opts: {
-    heading: string;
-    intro: string;
+  async sendWelcomeEmail(
+    brideName: string,
+    brideEmail: string,
+    temporaryPassword: string,
+  ): Promise<void> {
+    const portalUrl = this.config.get<string>('frontend.url');
+    const subject = 'Welcome to Fatima K Design — Your Portal Access';
+
+    const html = `<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#FAF8F5;font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td align="center" style="padding:40px 20px;">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#D4A373,#C8956A);padding:40px 32px;text-align:center;">
+            <h1 style="margin:0;color:#FFFFFF;font-family:'Cormorant Garamond',Georgia,serif;font-size:28px;font-weight:500;letter-spacing:1px;">FATIMA K DESIGN</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:40px 32px;">
+            <h2 style="margin:0 0 16px;color:#2C2C2C;font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:500;">Welcome to Your Bridal Portal</h2>
+            <p style="margin:0 0 24px;color:#555;font-size:15px;line-height:1.6;">Hi ${brideName},</p>
+            <p style="margin:0 0 24px;color:#555;font-size:15px;line-height:1.6;">We're thrilled to have you! Your personal bridal portal has been created where you can track your journey, view appointments, manage payments, and share inspiration.</p>
+            
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#FEFBF9;border:1px solid #E8E0D5;border-radius:8px;margin-bottom:32px;overflow:hidden;">
+              <tr>
+                <td style="padding:24px;">
+                  <p style="margin:0 0 12px;color:#A67C52;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Your Login Credentials</p>
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding:8px 0;">
+                        <p style="margin:0;color:#888;font-size:12px;">Email</p>
+                        <p style="margin:4px 0 0;color:#2C2C2C;font-size:15px;font-weight:600;">${brideEmail}</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:8px 0;">
+                        <p style="margin:0;color:#888;font-size:12px;">Temporary Password</p>
+                        <p style="margin:4px 0 0;color:#2C2C2C;font-size:15px;font-weight:600;font-family:monospace;background:#F5EFE9;padding:8px 12px;border-radius:6px;display:inline-block;">${temporaryPassword}</p>
+                      </td>
+                    </tr>
+                  </table>
+                  <div style="margin-top:16px;padding:12px;background:#FFF9F4;border-left:3px solid #D4A373;border-radius:4px;">
+                    <p style="margin:0;color:#C07840;font-size:13px;line-height:1.5;">
+                      <strong>Important:</strong> Please change your password after your first login for security.
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            </table>
+
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center" style="padding:0 0 24px;">
+                  <a href="${portalUrl}" style="display:inline-block;padding:14px 32px;background:#2C2C2C;color:#FFFFFF;text-decoration:none;border-radius:8px;font-size:15px;font-weight:600;">Access Your Portal</a>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0;color:#888;font-size:13px;line-height:1.6;">If you have any questions or need assistance, please don't hesitate to reach out. We're here to make your bridal journey unforgettable.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#FAF8F5;padding:24px 32px;text-align:center;border-top:1px solid #E8E0D5;">
+            <p style="margin:0 0 8px;color:#A67C52;font-size:13px;font-weight:500;">Fatima K Design</p>
+            <p style="margin:0;color:#AAAAAA;font-size:12px;">© ${new Date().getFullYear()} All rights reserved</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+    await this.send({ email: brideEmail, name: brideName }, subject, html);
+  }
+
+  private buildPaymentRequestEmail(opts: {
+    brideName: string;
     label: string;
-    amount: string;
-    due: string | null;
-    notes: string | null;
+    amount: number;
+    dueDate: Date | null;
+    paymentUrl: string;
   }): string {
-    const { heading, intro, label, amount, due, notes } = opts;
-    return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#faf9f7;font-family:Georgia,serif;">
-<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:40px 20px;">
-<table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:4px;overflow:hidden;">
-  <tr><td style="background:#b8860b;padding:32px 40px;">
-    <h1 style="margin:0;color:#fff;font-size:22px;font-weight:normal;letter-spacing:2px;">FATIMA K DESIGN</h1>
-  </td></tr>
-  <tr><td style="padding:40px;">
-    <h2 style="margin:0 0 16px;color:#2c2c2c;font-size:20px;font-weight:normal;">${heading}</h2>
-    <p style="margin:0 0 24px;color:#555;font-size:15px;line-height:1.6;">${intro}</p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#faf9f7;border-left:3px solid #b8860b;margin-bottom:24px;">
-      <tr><td style="padding:8px 20px;"><p style="margin:0;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Payment Type</p>
-        <p style="margin:4px 0 0;color:#2c2c2c;font-size:15px;">${label}</p></td></tr>
-      <tr><td style="padding:8px 20px;"><p style="margin:0;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Amount</p>
-        <p style="margin:4px 0 0;color:#2c2c2c;font-size:15px;">${amount}</p></td></tr>
-      ${
-        due
-          ? `<tr><td style="padding:8px 20px;"><p style="margin:0;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Due Date</p>
-        <p style="margin:4px 0 0;color:#2c2c2c;font-size:15px;">${due}</p></td></tr>`
-          : ''
-      }
-      ${
-        notes
-          ? `<tr><td style="padding:8px 20px;"><p style="margin:0;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Notes</p>
-        <p style="margin:4px 0 0;color:#2c2c2c;font-size:15px;">${notes}</p></td></tr>`
-          : ''
-      }
-    </table>
-    <p style="margin:0;color:#aaa;font-size:13px;">If you have any questions, please contact us directly.</p>
-  </td></tr>
-  <tr><td style="background:#faf9f7;padding:20px 40px;text-align:center;">
-    <p style="margin:0;color:#bbb;font-size:12px;">© Fatima K Design — All rights reserved</p>
-  </td></tr>
-</table></td></tr></table></body></html>`;
+    const { brideName, label, amount, dueDate, paymentUrl } = opts;
+    const dueDateStr = dueDate
+      ? dueDate.toLocaleDateString('en-AU', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
+      : 'No due date specified';
+
+    return `<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#FAF8F5;font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td align="center" style="padding:40px 20px;">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#D4A373,#C8956A);padding:40px 32px;text-align:center;">
+            <h1 style="margin:0;color:#FFFFFF;font-family:'Cormorant Garamond',Georgia,serif;font-size:28px;font-weight:500;letter-spacing:1px;">FATIMA K DESIGN</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:40px 32px;">
+            <h2 style="margin:0 0 16px;color:#2C2C2C;font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:500;">Payment Request</h2>
+            <p style="margin:0 0 24px;color:#555;font-size:15px;line-height:1.6;">Hi ${brideName},</p>
+            <p style="margin:0 0 32px;color:#555;font-size:15px;line-height:1.6;">A new payment has been added to your account. Please review the details below:</p>
+            
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#FEFBF9;border:1px solid #E8E0D5;border-radius:8px;margin-bottom:32px;overflow:hidden;">
+              <tr>
+                <td style="padding:24px;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding:12px 0;border-bottom:1px solid #F0EBE4;">
+                        <p style="margin:0;color:#888;font-size:12px;">Payment Type</p>
+                        <p style="margin:4px 0 0;color:#2C2C2C;font-size:15px;font-weight:600;">${label}</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:12px 0;border-bottom:1px solid #F0EBE4;">
+                        <p style="margin:0;color:#888;font-size:12px;">Amount</p>
+                        <p style="margin:4px 0 0;color:#D4A373;font-size:22px;font-weight:700;">$${amount.toLocaleString()}</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:12px 0;">
+                        <p style="margin:0;color:#888;font-size:12px;">Due Date</p>
+                        <p style="margin:4px 0 0;color:#2C2C2C;font-size:15px;font-weight:600;">${dueDateStr}</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center" style="padding:0 0 24px;">
+                  <a href="${paymentUrl}" style="display:inline-block;padding:14px 32px;background:#2C2C2C;color:#FFFFFF;text-decoration:none;border-radius:8px;font-size:15px;font-weight:600;">View Payment Details</a>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0;color:#888;font-size:13px;line-height:1.6;">If you have any questions about this payment, please don't hesitate to contact us.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#FAF8F5;padding:24px 32px;text-align:center;border-top:1px solid #E8E0D5;">
+            <p style="margin:0 0 8px;color:#A67C52;font-size:13px;font-weight:500;">Fatima K Design</p>
+            <p style="margin:0;color:#AAAAAA;font-size:12px;">© ${new Date().getFullYear()} All rights reserved</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
   }
 
   private buildAppointmentEmail(opts: {
     heading: string;
     intro: string;
     ctx: AppointmentEmailContext;
-    accentColor: string;
   }): string {
-    const { heading, intro, ctx, accentColor } = opts;
-    const showCalendarButton = ctx.ics && ctx.ics.method === 'REQUEST';
-    const googleCalLink = showCalendarButton
-      ? this.buildGoogleCalendarLink(ctx)
-      : '';
+    const { heading, intro, ctx } = opts;
 
-    return `
-      <!DOCTYPE html>
-      <html>
-        <body style="margin:0;padding:0;background:#faf9f7;font-family:Georgia,serif;">
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td align="center" style="padding:40px 20px;">
-                <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:4px;overflow:hidden;">
-                  <tr>
-                    <td style="background:${accentColor};padding:32px 40px;">
-                      <h1 style="margin:0;color:#fff;font-size:22px;font-weight:normal;letter-spacing:2px;">
-                        FATIMA K DESIGN
-                      </h1>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="padding:40px;">
-                      <h2 style="margin:0 0 16px;color:#2c2c2c;font-size:20px;font-weight:normal;">
-                        ${heading}
-                      </h2>
-                      <p style="margin:0 0 24px;color:#555;font-size:15px;line-height:1.6;">
-                        ${intro}
-                      </p>
-                      <table width="100%" cellpadding="0" cellspacing="0"
-                        style="background:#faf9f7;border-left:3px solid ${accentColor};padding:20px;margin-bottom:24px;">
-                        <tr>
-                          <td style="padding:6px 20px;">
-                            <p style="margin:0;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Type</p>
-                            <p style="margin:4px 0 0;color:#2c2c2c;font-size:15px;">${ctx.title}</p>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td style="padding:6px 20px;">
-                            <p style="margin:0;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Date & Time</p>
-                            <p style="margin:4px 0 0;color:#2c2c2c;font-size:15px;">${this.formatDateTime(ctx.startTime)}</p>
-                          </td>
-                        </tr>
-                      </table>
-                      <p style="margin:0;color:#aaa;font-size:13px;">
-                        If you have any questions, please reply to this email or contact us directly.
-                      </p>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-      </html>
-    `;
+    return `<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#FAF8F5;font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td align="center" style="padding:40px 20px;">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#D4A373,#C8956A);padding:40px 32px;text-align:center;">
+            <h1 style="margin:0;color:#FFFFFF;font-family:'Cormorant Garamond',Georgia,serif;font-size:28px;font-weight:500;letter-spacing:1px;">FATIMA K DESIGN</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:40px 32px;">
+            <h2 style="margin:0 0 16px;color:#2C2C2C;font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:500;">${heading}</h2>
+            <p style="margin:0 0 32px;color:#555;font-size:15px;line-height:1.6;">${intro}</p>
+            
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#FEFBF9;border:1px solid #E8E0D5;border-radius:8px;margin-bottom:32px;overflow:hidden;">
+              <tr>
+                <td style="padding:24px;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding:12px 0;border-bottom:1px solid #F0EBE4;">
+                        <p style="margin:0;color:#888;font-size:12px;">Appointment Type</p>
+                        <p style="margin:4px 0 0;color:#2C2C2C;font-size:15px;font-weight:600;">${ctx.title}</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:12px 0;border-bottom:1px solid #F0EBE4;">
+                        <p style="margin:0;color:#888;font-size:12px;">Date & Time</p>
+                        <p style="margin:4px 0 0;color:#2C2C2C;font-size:15px;font-weight:600;">${this.formatDateTime(ctx.startTime)}</p>
+                      </td>
+                    </tr>
+                    ${
+                      ctx.location
+                        ? `<tr>
+                      <td style="padding:12px 0;border-bottom:1px solid #F0EBE4;">
+                        <p style="margin:0;color:#888;font-size:12px;">Location</p>
+                        <p style="margin:4px 0 0;color:#2C2C2C;font-size:15px;font-weight:600;">${ctx.location}</p>
+                      </td>
+                    </tr>`
+                        : ''
+                    }
+                    ${
+                      ctx.whatToBring
+                        ? `<tr>
+                      <td style="padding:12px 0;">
+                        <p style="margin:0;color:#888;font-size:12px;">What to Bring</p>
+                        <p style="margin:4px 0 0;color:#2C2C2C;font-size:15px;font-weight:600;">${ctx.whatToBring}</p>
+                      </td>
+                    </tr>`
+                        : ''
+                    }
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0;color:#888;font-size:13px;line-height:1.6;">If you have any questions, please reply to this email or contact us directly.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#FAF8F5;padding:24px 32px;text-align:center;border-top:1px solid #E8E0D5;">
+            <p style="margin:0 0 8px;color:#A67C52;font-size:13px;font-weight:500;">Fatima K Design</p>
+            <p style="margin:0;color:#AAAAAA;font-size:12px;">© ${new Date().getFullYear()} All rights reserved</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
   }
 }

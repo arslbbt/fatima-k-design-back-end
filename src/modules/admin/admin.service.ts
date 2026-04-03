@@ -3,6 +3,8 @@ import {
   ConflictException,
   NotFoundException,
   BadRequestException,
+  Inject,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateAdminDto } from './dto/create-admin.dto';
@@ -10,10 +12,17 @@ import { UpdateAdminDto } from './dto/update-admin.dto';
 import { ResetAdminPasswordDto } from './dto/reset-admin-password.dto';
 import { RegisterBrideDto } from '../auth/dto/register-bride.dto';
 import * as bcrypt from 'bcrypt';
+import type { IMailService } from '../../common/mail/mail.interface';
+import { MAIL_SERVICE } from '../../common/mail/mail.interface';
 
 @Injectable()
 export class AdminService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(AdminService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    @Inject(MAIL_SERVICE) private mailService: IMailService,
+  ) {}
 
   async listAllUsers(params: {
     page: number;
@@ -80,7 +89,7 @@ export class AdminService {
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
-    return this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         name: dto.name,
         email: dto.email,
@@ -105,6 +114,20 @@ export class AdminService {
         brideProfile: true,
       },
     });
+
+    // Send welcome email with login credentials
+    try {
+      await this.mailService.sendWelcomeEmail(
+        user.name,
+        user.email,
+        dto.password,
+      );
+    } catch (err) {
+      this.logger.error('Failed to send welcome email', err);
+      // Don't throw - user is created successfully
+    }
+
+    return user;
   }
 
   async createAdmin(dto: CreateAdminDto) {

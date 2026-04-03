@@ -41,6 +41,11 @@ export interface IMailService {
   sendAppointmentUpdate(ctx: AppointmentEmailContext): Promise<void>;
   sendPaymentRequest(ctx: PaymentEmailContext): Promise<void>;
   sendPaymentReminder(ctx: PaymentReminderContext): Promise<void>;
+  sendWelcomeEmail(
+    brideName: string,
+    brideEmail: string,
+    temporaryPassword: string,
+  ): Promise<void>;
 }
 
 export const MAIL_SERVICE = 'MAIL_SERVICE';

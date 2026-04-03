@@ -3,6 +3,8 @@ import {
   ConflictException,
   UnauthorizedException,
   NotFoundException,
+  Inject,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../database/prisma.service';
@@ -10,12 +12,17 @@ import { RegisterBrideDto } from './dto/register-bride.dto';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import * as bcrypt from 'bcrypt';
+import type { IMailService } from '../../common/mail/mail.interface';
+import { MAIL_SERVICE } from '../../common/mail/mail.interface';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
+    @Inject(MAIL_SERVICE) private mailService: IMailService,
   ) {}
 
   async registerBride(dto: RegisterBrideDto) {
@@ -49,6 +56,18 @@ export class AuthService {
         brideProfile: true,
       },
     });
+
+    // Send welcome email with login credentials
+    try {
+      await this.mailService.sendWelcomeEmail(
+        user.name,
+        user.email,
+        dto.password,
+      );
+    } catch (err) {
+      this.logger.error('Failed to send welcome email', err);
+      // Don't throw - user is created successfully
+    }
 
     return user;
   }

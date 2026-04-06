@@ -46,14 +46,8 @@ export class InspoService {
   }
 
   async addVideoLink(brideId: string, dto: AddVideoLinkDto) {
-    // Validate and detect platform
-    const platform = this.detectPlatform(dto.videoLink);
-
-    if (!platform) {
-      throw new BadRequestException(
-        'Unsupported video platform. Please use TikTok, Instagram, YouTube, or Pinterest links.',
-      );
-    }
+    // Detect platform (optional, for display purposes)
+    const platform = this.detectPlatform(dto.videoLink) || 'other';
 
     return this.prisma.inspoUpload.create({
       data: {

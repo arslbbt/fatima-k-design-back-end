@@ -153,7 +153,10 @@ model FittingPhoto {
 model InspoUpload {
   id         String   @id @default(uuid())
   brideId    String   @map("bride_id")
-  imageUrl   String   @map("image_url")
+  imageUrl   String?  @map("image_url")
+  videoLink  String?  @map("video_link")
+  mediaType  String   @default("image") @map("media_type")
+  platform   String?
   caption    String?
   uploadedAt DateTime @default(now()) @map("uploaded_at")
 

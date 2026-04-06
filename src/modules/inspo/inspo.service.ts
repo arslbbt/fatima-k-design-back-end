@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { StorageService } from '../../common/storage/storage.service';
+import { AddVideoLinkDto } from './dto/add-video-link.dto';
 
 @Injectable()
 export class InspoService {
@@ -31,12 +32,51 @@ export class InspoService {
           file.buffer,
         );
         return this.prisma.inspoUpload.create({
-          data: { brideId, imageUrl, caption: caption ?? null },
+          data: {
+            brideId,
+            imageUrl,
+            mediaType: 'image',
+            caption: caption ?? null,
+          },
         });
       }),
     );
 
     return uploads;
+  }
+
+  async addVideoLink(brideId: string, dto: AddVideoLinkDto) {
+    // Validate and detect platform
+    const platform = this.detectPlatform(dto.videoLink);
+
+    if (!platform) {
+      throw new BadRequestException(
+        'Unsupported video platform. Please use TikTok, Instagram, YouTube, or Pinterest links.',
+      );
+    }
+
+    return this.prisma.inspoUpload.create({
+      data: {
+        brideId,
+        videoLink: dto.videoLink,
+        mediaType: 'video_link',
+        platform,
+      },
+    });
+  }
+
+  private detectPlatform(url: string): string | null {
+    const urlLower = url.toLowerCase();
+
+    if (urlLower.includes('tiktok.com')) return 'tiktok';
+    if (urlLower.includes('instagram.com')) return 'instagram';
+    if (urlLower.includes('youtube.com') || urlLower.includes('youtu.be'))
+      return 'youtube';
+    if (urlLower.includes('pinterest.com') || urlLower.includes('pin.it'))
+      return 'pinterest';
+    if (urlLower.includes('vimeo.com')) return 'vimeo';
+
+    return null;
   }
 
   async listForBride(brideId: string) {
@@ -55,7 +95,11 @@ export class InspoService {
       throw new ForbiddenException('You can only delete your own uploads');
     }
 
-    this.storage.deleteByUrl(upload.imageUrl);
+    // Only delete file from storage if it's an uploaded image
+    if (upload.mediaType === 'image' && upload.imageUrl) {
+      this.storage.deleteByUrl(upload.imageUrl);
+    }
+
     await this.prisma.inspoUpload.delete({ where: { id } });
     return { message: 'Upload deleted successfully' };
   }

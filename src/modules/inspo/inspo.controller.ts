@@ -27,6 +27,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { IsOptional, IsString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { AddVideoLinkDto } from './dto/add-video-link.dto';
 
 class UploadInspoDto {
   @ApiPropertyOptional() @IsOptional() @IsString() caption?: string;
@@ -57,6 +58,16 @@ export class InspoController {
     @CurrentUser() user: { id: string },
   ) {
     return this.inspoService.upload(user.id, files, body.caption);
+  }
+
+  @Post('video-link')
+  @Roles(Role.BRIDE)
+  @ApiOperation({ summary: 'Bride — save video link from social media' })
+  addVideoLink(
+    @Body() dto: AddVideoLinkDto,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.inspoService.addVideoLink(user.id, dto);
   }
 
   @Get('my')

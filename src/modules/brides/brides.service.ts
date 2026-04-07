@@ -258,9 +258,10 @@ export class BridesService {
       ];
     }
 
-    if (query.stage || query.stylePreferences) {
+    if (query.stage || query.stylePreferences || query.brideType) {
       const profileWhere: Record<string, unknown> = {};
       if (query.stage) profileWhere.stage = query.stage;
+      if (query.brideType) profileWhere.brideType = query.brideType;
       if (query.stylePreferences)
         profileWhere.stylePreferences = {
           contains: query.stylePreferences,

@@ -80,9 +80,15 @@ enum BrideStage {
   COLLECTION_READY
 }
 
+enum BrideType {
+  CUSTOM
+  READY_TO_WEAR
+}
+
 model BrideProfile {
   id               String     @id @default(uuid())
   userId           String     @unique @map("user_id")
+  brideType        BrideType  @default(CUSTOM) @map("bride_type")
   weddingDate      DateTime?  @map("wedding_date")
   phone            String?
   address          String?

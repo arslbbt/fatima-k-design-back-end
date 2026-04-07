@@ -97,6 +97,7 @@ export class AdminService {
         role: 'BRIDE',
         brideProfile: {
           create: {
+            brideType: dto.brideType ?? 'CUSTOM',
             weddingDate: dto.weddingDate ? new Date(dto.weddingDate) : null,
             phone: dto.phone ?? null,
             partnerName: dto.partnerName ?? null,
@@ -306,7 +307,12 @@ export class AdminService {
         email: true,
         createdAt: true,
         brideProfile: {
-          select: { stage: true, weddingDate: true, phone: true },
+          select: {
+            stage: true,
+            weddingDate: true,
+            phone: true,
+            brideType: true,
+          },
         },
         payments: { select: { amount: true, status: true } },
       },

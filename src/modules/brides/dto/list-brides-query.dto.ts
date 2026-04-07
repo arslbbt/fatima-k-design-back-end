@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { BrideStage } from '@prisma/client';
+import { BrideStage, BrideType } from '@prisma/client';
 
 export class ListBridesQueryDto {
   @ApiPropertyOptional({
@@ -16,6 +16,11 @@ export class ListBridesQueryDto {
   @IsOptional()
   @IsEnum(BrideStage)
   stage?: BrideStage;
+
+  @ApiPropertyOptional({ enum: BrideType })
+  @IsOptional()
+  @IsEnum(BrideType)
+  brideType?: BrideType;
 
   @ApiPropertyOptional({
     example: 'lace',

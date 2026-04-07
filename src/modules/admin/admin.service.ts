@@ -290,15 +290,18 @@ export class AdminService {
       allPayments.filter((p) => p.status !== 'PAID').map((p) => p.brideId),
     );
 
-    // ── Recent brides (max 6, sorted by wedding date closest first) ──
+    // ── Recent brides (max 6 custom + 6 ready-to-wear, sorted by wedding date closest first) ──
     const today = new Date();
-    const recentBrides = await this.prisma.user.findMany({
+
+    // Fetch custom brides
+    const customBrides = await this.prisma.user.findMany({
       where: {
         role: 'BRIDE',
         brideProfile: {
           weddingDate: {
             gte: today, // only future or today
           },
+          brideType: 'CUSTOM',
         },
       },
       select: {
@@ -320,7 +323,50 @@ export class AdminService {
       take: 6,
     });
 
-    const bridesWithBalance = recentBrides.map((b) => {
+    // Fetch ready-to-wear brides
+    const readyToWearBrides = await this.prisma.user.findMany({
+      where: {
+        role: 'BRIDE',
+        brideProfile: {
+          weddingDate: {
+            gte: today, // only future or today
+          },
+          brideType: 'READY_TO_WEAR',
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+        brideProfile: {
+          select: {
+            stage: true,
+            weddingDate: true,
+            phone: true,
+            brideType: true,
+          },
+        },
+        payments: { select: { amount: true, status: true } },
+      },
+      orderBy: [{ brideProfile: { weddingDate: 'asc' } }],
+      take: 6,
+    });
+
+    // Combine and sort all brides by wedding date
+    const allRecentBrides = [...customBrides, ...readyToWearBrides].sort(
+      (a, b) => {
+        const dateA = a.brideProfile?.weddingDate
+          ? new Date(a.brideProfile.weddingDate).getTime()
+          : Infinity;
+        const dateB = b.brideProfile?.weddingDate
+          ? new Date(b.brideProfile.weddingDate).getTime()
+          : Infinity;
+        return dateA - dateB;
+      },
+    );
+
+    const bridesWithBalance = allRecentBrides.map((b) => {
       const total = b.payments.reduce((s, p) => s + Number(p.amount), 0);
       const paid = b.payments
         .filter((p) => p.status === 'PAID')

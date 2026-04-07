@@ -30,6 +30,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 class CreateFittingDto {
   @ApiProperty() @IsUUID() appointmentId: string;
+  @ApiProperty() @IsString() name: string;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
 }
 
@@ -51,7 +52,12 @@ export class FittingsController {
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Admin — create a fitting record for a bride' })
   create(@Param('brideId') brideId: string, @Body() dto: CreateFittingDto) {
-    return this.fittingsService.create(brideId, dto.appointmentId, dto.notes);
+    return this.fittingsService.create(
+      brideId,
+      dto.appointmentId,
+      dto.name,
+      dto.notes,
+    );
   }
 
   @Post(':id/photos')

@@ -134,6 +134,7 @@ model Fitting {
   brideId       String   @map("bride_id")
   appointmentId String?  @map("appointment_id")
   fittingNumber Int      @map("fitting_number")
+  name          String
   notes         String?
   createdAt     DateTime @default(now()) @map("created_at")
 

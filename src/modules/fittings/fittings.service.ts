@@ -13,7 +13,12 @@ export class FittingsService {
     private storage: StorageService,
   ) {}
 
-  async create(brideId: string, appointmentId: string, notes?: string) {
+  async create(
+    brideId: string,
+    appointmentId: string,
+    name: string,
+    notes?: string,
+  ) {
     const bride = await this.prisma.user.findFirst({
       where: { id: brideId, role: 'BRIDE' },
     });
@@ -26,6 +31,12 @@ export class FittingsService {
     if (!appointment)
       throw new NotFoundException('Appointment not found for this bride');
 
+    // Validate name (max 9 words)
+    const wordCount = name.trim().split(/\s+/).length;
+    if (wordCount > 9) {
+      throw new BadRequestException('Fitting name must not exceed 9 words');
+    }
+
     // Auto-increment fitting number for this bride
     const count = await this.prisma.fitting.count({ where: { brideId } });
 
@@ -34,6 +45,7 @@ export class FittingsService {
         brideId,
         fittingNumber: count + 1,
         appointmentId,
+        name: name.trim(),
         notes: notes ?? null,
       },
       include: { photos: true },

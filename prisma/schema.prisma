@@ -20,20 +20,18 @@ enum AppointmentStatus {
 }
 
 enum AppointmentTitle {
+  // Shared stages (used by both Custom and RTW)
   CONSULTATION
-  // Custom dress flow
+  ALTERATION
+  GOWN_COMPLETE
+  COLLECTION_READY
+  // Custom dress flow only
   MEASUREMENTS
   CALICO
   GOWN_IN_FABRIC
   DETAIL_ON
-  ALTERATION
-  GOWN_COMPLETE
-  COLLECTION_READY
-  // RTW flow
+  // RTW flow only
   GOWN_TRY_ON
-  ALTERATIONS
-  RTW_GOWN_COMPLETE
-  RTW_COLLECTION_READY
   // Generic
   CUSTOM
 }
@@ -79,20 +77,18 @@ model User {
 }
 
 enum BrideStage {
+  // Shared stages (used by both Custom and RTW)
   CONSULTATION
-  // Custom dress stages
+  ALTERATION
+  GOWN_COMPLETE
+  COLLECTION_READY
+  // Custom dress stages only
   MEASUREMENTS
   CALICO
   GOWN_IN_FABRIC
   DETAIL_ON
-  ALTERATION
-  GOWN_COMPLETE
-  COLLECTION_READY
-  // RTW stages
+  // RTW stages only
   GOWN_TRY_ON
-  ALTERATIONS
-  RTW_GOWN_COMPLETE
-  RTW_COLLECTION_READY
 }
 
 enum BrideType {

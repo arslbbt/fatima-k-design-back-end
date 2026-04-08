@@ -3,7 +3,7 @@ import { IsEnum } from 'class-validator';
 import { BrideStage } from '@prisma/client';
 
 export class UpdateBrideStageDto {
-  @ApiProperty({ enum: BrideStage, example: BrideStage.FIRST_FITTING })
+  @ApiProperty({ enum: BrideStage, example: BrideStage.MEASUREMENTS })
   @IsEnum(BrideStage)
   stage: BrideStage;
 }

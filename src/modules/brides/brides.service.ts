@@ -48,24 +48,40 @@ export class BridesService {
   }
 
   async getJourney(brideId: string) {
-    const STAGE_ORDER = [
+    const CUSTOM_STAGE_ORDER = [
       'CONSULTATION',
-      'FIRST_FITTING',
-      'SECOND_FITTING',
-      'THIRD_FITTING',
-      'FINAL_FITTING',
+      'MEASUREMENTS',
+      'CALICO',
+      'GOWN_IN_FABRIC',
+      'DETAIL_ON',
       'ALTERATION',
+      'GOWN_COMPLETE',
       'COLLECTION_READY',
+    ] as const;
+
+    const RTW_STAGE_ORDER = [
+      'CONSULTATION',
+      'GOWN_TRY_ON',
+      'ALTERATIONS',
+      'RTW_GOWN_COMPLETE',
+      'RTW_COLLECTION_READY',
     ] as const;
 
     const STAGE_LABELS: Record<string, string> = {
       CONSULTATION: 'Consultation',
-      FIRST_FITTING: '1st Fitting',
-      SECOND_FITTING: '2nd Fitting',
-      THIRD_FITTING: '3rd Fitting',
-      FINAL_FITTING: 'Final Fitting',
+      // Custom
+      MEASUREMENTS: 'Measurements',
+      CALICO: 'Calico',
+      GOWN_IN_FABRIC: 'Gown in Fabric',
+      DETAIL_ON: 'Detail On',
       ALTERATION: 'Alteration',
+      GOWN_COMPLETE: 'Gown Complete',
       COLLECTION_READY: 'Collection Ready',
+      // RTW
+      GOWN_TRY_ON: 'Gown Try On',
+      ALTERATIONS: 'Alterations',
+      RTW_GOWN_COMPLETE: 'Gown Complete',
+      RTW_COLLECTION_READY: 'Collection Ready',
     };
 
     const TITLE_LABELS: Record<string, string> = {
@@ -78,7 +94,7 @@ export class BridesService {
       select: {
         id: true,
         name: true,
-        brideProfile: { select: { stage: true } },
+        brideProfile: { select: { stage: true, brideType: true } },
         fittings: {
           include: {
             photos: true,
@@ -116,7 +132,12 @@ export class BridesService {
 
     if (!bride) throw new NotFoundException('Bride not found');
 
-    // ── Progress card: fixed 7 stages ──────────────────────────
+    // Determine stage order based on bride type
+    const brideType = bride.brideProfile?.brideType ?? 'CUSTOM';
+    const STAGE_ORDER =
+      brideType === 'READY_TO_WEAR' ? RTW_STAGE_ORDER : CUSTOM_STAGE_ORDER;
+
+    // ── Progress card: stages based on bride type ──────────────
     const currentStage = bride.brideProfile?.stage ?? 'CONSULTATION';
     const currentIdx = STAGE_ORDER.indexOf(currentStage as any);
     const progressPct = Math.round(
@@ -183,6 +204,7 @@ export class BridesService {
       progressPct,
       stageProgress,
       events: [...completedEvents, ...upcomingAppts],
+      brideType,
     };
   }
 

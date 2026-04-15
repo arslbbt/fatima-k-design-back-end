@@ -260,34 +260,78 @@ export class PaymentsService {
       .filter((p) => p.status === PaymentStatus.PAID)
       .reduce((sum, p) => sum + Number(p.amount), 0);
 
-    const outstanding = allPayments
-      .filter((p) => p.status !== PaymentStatus.PAID)
-      .reduce((sum, p) => sum + Number(p.amount), 0);
+    // Calculate total outstanding across all brides using totalGownAmount
+    const allBridesWithPayments = await this.prisma.user.findMany({
+      where: { role: 'BRIDE' },
+      select: {
+        id: true,
+        brideProfile: { select: { totalGownAmount: true } },
+        payments: { select: { amount: true, status: true, dueDate: true } },
+      },
+    });
+
+    let outstanding = 0;
+    allBridesWithPayments.forEach((bride) => {
+      let brideOutstanding = 0;
+
+      if (bride.brideProfile?.totalGownAmount) {
+        // If total gown amount is set, calculate: totalGownAmount - totalPaid
+        const totalPaid = bride.payments
+          .filter((p) => p.status === 'PAID')
+          .reduce((sum, p) => sum + Number(p.amount), 0);
+        brideOutstanding =
+          Number(bride.brideProfile.totalGownAmount) - totalPaid;
+        brideOutstanding = Math.max(0, brideOutstanding);
+      } else {
+        // Fallback: sum of unpaid payments (old behavior)
+        brideOutstanding = bride.payments
+          .filter((p) => p.status !== 'PAID')
+          .reduce((sum, p) => sum + Number(p.amount), 0);
+      }
+
+      outstanding += brideOutstanding;
+    });
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const paymentsDue = allPayments.filter(
+
+    // Calculate payments due this month (count and amount)
+    const paymentsDueList = allPayments.filter(
       (p) =>
         p.status === PaymentStatus.PENDING &&
         p.dueDate &&
         p.dueDate >= startOfMonth &&
         p.dueDate < startOfNextMonth,
-    ).length;
-    const overdueCount = allPayments.filter(
+    );
+    const paymentsDue = paymentsDueList.length;
+    const paymentsDueAmount = paymentsDueList.reduce(
+      (sum, p) => sum + Number(p.amount),
+      0,
+    );
+
+    // Calculate overdue payments (count and amount)
+    const overdueList = allPayments.filter(
       (p) =>
         p.status === ('OVERDUE' as any) ||
         (p.status === PaymentStatus.PENDING &&
           p.dueDate &&
           new Date(p.dueDate) < today),
-    ).length;
+    );
+    const overdueCount = overdueList.length;
+    const overdueAmount = overdueList.reduce(
+      (sum, p) => sum + Number(p.amount),
+      0,
+    );
 
     return {
       revenueCollected,
       outstanding,
       paymentsDue,
+      paymentsDueAmount,
       overdueCount,
+      overdueAmount,
     };
   }
 
@@ -398,10 +442,10 @@ export class PaymentsService {
     ]);
 
     const items = brides.map((bride) => {
-      const totalAmount = bride.payments.reduce(
-        (sum, p) => sum + Number(p.amount),
-        0,
-      );
+      // Use totalGownAmount if available, otherwise fall back to sum of payments
+      const totalAmount = bride.brideProfile?.totalGownAmount
+        ? Number(bride.brideProfile.totalGownAmount)
+        : bride.payments.reduce((sum, p) => sum + Number(p.amount), 0);
 
       const paidAmount = bride.payments
         .filter((p) => p.status === PaymentStatus.PAID)
@@ -421,14 +465,22 @@ export class PaymentsService {
           (!p.dueDate || new Date(p.dueDate) >= today),
       );
 
-      const isFullyPaid =
-        bride.payments.length > 0 &&
-        bride.payments.every((p) => p.status === 'PAID');
+      // Determine if fully paid based on totalGownAmount
+      let isFullyPaid = false;
+      if (bride.brideProfile?.totalGownAmount) {
+        // If totalGownAmount exists, check if paid amount equals or exceeds it
+        isFullyPaid = paidAmount >= Number(bride.brideProfile.totalGownAmount);
+      } else {
+        // Fallback: check if all payments are paid
+        isFullyPaid =
+          bride.payments.length > 0 &&
+          bride.payments.every((p) => p.status === 'PAID');
+      }
 
       let currentStatus = 'on-track';
       if (isFullyPaid) currentStatus = 'paid';
       else if (hasOverdue) currentStatus = 'overdue';
-      else if (hasDue) currentStatus = 'due';
+      else if (hasDue || paidAmount < totalAmount) currentStatus = 'due';
 
       return {
         id: bride.id,

@@ -306,11 +306,26 @@ export class BridesService {
       }),
     ]);
 
-    const items = data.map(({ payments, ...bride }) => {
-      const outstanding = payments
-        .filter((p) => p.status !== 'PAID')
-        .reduce((sum, p) => sum + Number(p.amount), 0);
-      return { ...bride, outstanding };
+    const items = data.map(({ payments, brideProfile, ...bride }) => {
+      // Calculate outstanding based on total gown amount if available
+      let outstanding = 0;
+
+      if (brideProfile?.totalGownAmount) {
+        // If total gown amount is set, calculate: totalGownAmount - totalPaid
+        const totalPaid = payments
+          .filter((p) => p.status === 'PAID')
+          .reduce((sum, p) => sum + Number(p.amount), 0);
+        outstanding = Number(brideProfile.totalGownAmount) - totalPaid;
+        // Ensure outstanding is not negative
+        outstanding = Math.max(0, outstanding);
+      } else {
+        // Fallback: sum of unpaid payments (old behavior)
+        outstanding = payments
+          .filter((p) => p.status !== 'PAID')
+          .reduce((sum, p) => sum + Number(p.amount), 0);
+      }
+
+      return { ...bride, brideProfile, outstanding };
     });
 
     return {
@@ -327,10 +342,34 @@ export class BridesService {
   async findOne(id: string) {
     const bride = await this.prisma.user.findFirst({
       where: { id, role: 'BRIDE' },
-      select: BRIDE_SELECT,
+      select: {
+        ...BRIDE_SELECT,
+        payments: { select: { amount: true, status: true } },
+      },
     });
     if (!bride) throw new NotFoundException('Bride not found');
-    return bride;
+
+    const { payments, brideProfile, ...brideData } = bride;
+
+    // Calculate outstanding based on total gown amount if available
+    let outstanding = 0;
+
+    if (brideProfile?.totalGownAmount) {
+      // If total gown amount is set, calculate: totalGownAmount - totalPaid
+      const totalPaid = payments
+        .filter((p) => p.status === 'PAID')
+        .reduce((sum, p) => sum + Number(p.amount), 0);
+      outstanding = Number(brideProfile.totalGownAmount) - totalPaid;
+      // Ensure outstanding is not negative
+      outstanding = Math.max(0, outstanding);
+    } else {
+      // Fallback: sum of unpaid payments (old behavior)
+      outstanding = payments
+        .filter((p) => p.status !== 'PAID')
+        .reduce((sum, p) => sum + Number(p.amount), 0);
+    }
+
+    return { ...brideData, brideProfile, outstanding };
   }
 
   async updateStage(id: string, dto: UpdateBrideStageDto) {

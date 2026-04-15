@@ -357,13 +357,42 @@ export class AdminService {
       )
       .reduce((sum, p) => sum + Number(p.amount), 0);
 
-    const outstanding = allPayments
-      .filter((p) => p.status !== 'PAID')
-      .reduce((sum, p) => sum + Number(p.amount), 0);
+    // Calculate total outstanding across all brides
+    const allBridesWithPayments = await this.prisma.user.findMany({
+      where: { role: 'BRIDE' },
+      select: {
+        id: true,
+        brideProfile: { select: { totalGownAmount: true } },
+        payments: { select: { amount: true, status: true } },
+      },
+    });
 
-    const outstandingBrideIds = new Set(
-      allPayments.filter((p) => p.status !== 'PAID').map((p) => p.brideId),
-    );
+    let outstanding = 0;
+    const outstandingBrideIds = new Set<string>();
+
+    allBridesWithPayments.forEach((bride) => {
+      let brideOutstanding = 0;
+
+      if (bride.brideProfile?.totalGownAmount) {
+        // If total gown amount is set, calculate: totalGownAmount - totalPaid
+        const totalPaid = bride.payments
+          .filter((p) => p.status === 'PAID')
+          .reduce((sum, p) => sum + Number(p.amount), 0);
+        brideOutstanding =
+          Number(bride.brideProfile.totalGownAmount) - totalPaid;
+        brideOutstanding = Math.max(0, brideOutstanding);
+      } else {
+        // Fallback: sum of unpaid payments (old behavior)
+        brideOutstanding = bride.payments
+          .filter((p) => p.status !== 'PAID')
+          .reduce((sum, p) => sum + Number(p.amount), 0);
+      }
+
+      if (brideOutstanding > 0) {
+        outstanding += brideOutstanding;
+        outstandingBrideIds.add(bride.id);
+      }
+    });
 
     // ── Recent brides (max 6 custom + 6 ready-to-wear, sorted by wedding date closest first) ──
     const today = new Date();
@@ -390,6 +419,7 @@ export class AdminService {
             weddingDate: true,
             phone: true,
             brideType: true,
+            totalGownAmount: true,
           },
         },
         payments: { select: { amount: true, status: true } },
@@ -420,6 +450,7 @@ export class AdminService {
             weddingDate: true,
             phone: true,
             brideType: true,
+            totalGownAmount: true,
           },
         },
         payments: { select: { amount: true, status: true } },
@@ -442,18 +473,31 @@ export class AdminService {
     );
 
     const bridesWithBalance = allRecentBrides.map((b) => {
-      const total = b.payments.reduce((s, p) => s + Number(p.amount), 0);
-      const paid = b.payments
-        .filter((p) => p.status === 'PAID')
-        .reduce((s, p) => s + Number(p.amount), 0);
+      let balance = 0;
+
+      if (b.brideProfile?.totalGownAmount) {
+        // If total gown amount is set, calculate: totalGownAmount - totalPaid
+        const totalPaid = b.payments
+          .filter((p) => p.status === 'PAID')
+          .reduce((s, p) => s + Number(p.amount), 0);
+        balance = Number(b.brideProfile.totalGownAmount) - totalPaid;
+        // Ensure balance is not negative
+        balance = Math.max(0, balance);
+      } else {
+        // Fallback: sum of unpaid payments (old behavior)
+        balance = b.payments
+          .filter((p) => p.status !== 'PAID')
+          .reduce((s, p) => s + Number(p.amount), 0);
+      }
+
       return {
         id: b.id,
         name: b.name,
         email: b.email,
         createdAt: b.createdAt,
         brideProfile: b.brideProfile,
-        balance: total - paid,
-        hasDue: total - paid > 0,
+        balance,
+        hasDue: balance > 0,
       };
     });
 

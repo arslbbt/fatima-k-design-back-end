@@ -351,25 +351,30 @@ export class BridesService {
 
     const { payments, brideProfile, ...brideData } = bride;
 
+    // Calculate total paid
+    const totalPaid = payments
+      .filter((p) => p.status === 'PAID')
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+
+    // Calculate due payments (sum of unpaid payment records)
+    const duePayments = payments
+      .filter((p) => p.status !== 'PAID')
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+
     // Calculate outstanding based on total gown amount if available
     let outstanding = 0;
 
     if (brideProfile?.totalGownAmount) {
       // If total gown amount is set, calculate: totalGownAmount - totalPaid
-      const totalPaid = payments
-        .filter((p) => p.status === 'PAID')
-        .reduce((sum, p) => sum + Number(p.amount), 0);
       outstanding = Number(brideProfile.totalGownAmount) - totalPaid;
       // Ensure outstanding is not negative
       outstanding = Math.max(0, outstanding);
     } else {
       // Fallback: sum of unpaid payments (old behavior)
-      outstanding = payments
-        .filter((p) => p.status !== 'PAID')
-        .reduce((sum, p) => sum + Number(p.amount), 0);
+      outstanding = duePayments;
     }
 
-    return { ...brideData, brideProfile, outstanding };
+    return { ...brideData, brideProfile, outstanding, duePayments };
   }
 
   async updateStage(id: string, dto: UpdateBrideStageDto) {

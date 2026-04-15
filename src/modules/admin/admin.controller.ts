@@ -86,6 +86,12 @@ export class AdminController {
     return this.adminService.registerBride(dto);
   }
 
+  @Patch('brides/:id')
+  @ApiOperation({ summary: 'Admin — update bride details' })
+  updateBride(@Param('id') id: string, @Body() dto: any) {
+    return this.adminService.updateBride(id, dto);
+  }
+
   // ── Admin management ─────────────────────────────────────────
 
   @Post('create')

@@ -89,6 +89,7 @@ export class AdminService {
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
+    // Create bride with profile
     const user = await this.prisma.user.create({
       data: {
         name: dto.name,
@@ -103,6 +104,7 @@ export class AdminService {
             partnerName: dto.partnerName ?? null,
             venueName: dto.venueName ?? null,
             notes: dto.notes ?? null,
+            totalGownAmount: dto.totalGownAmount ?? null,
           },
         },
       },
@@ -115,6 +117,21 @@ export class AdminService {
         brideProfile: true,
       },
     });
+
+    // Create initial payment if provided
+    if (dto.initialPaymentAmount && dto.initialPaymentType) {
+      await this.prisma.payment.create({
+        data: {
+          brideId: user.id,
+          amount: dto.initialPaymentAmount,
+          paymentType: dto.initialPaymentType,
+          status: 'PAID',
+          paidDate: new Date(),
+          dueDate: new Date(),
+          notes: dto.initialPaymentNotes ?? null,
+        },
+      });
+    }
 
     // Send welcome email with login credentials
     try {
@@ -129,6 +146,64 @@ export class AdminService {
     }
 
     return user;
+  }
+
+  async updateBride(id: string, dto: any) {
+    const bride = await this.prisma.user.findFirst({
+      where: { id, role: 'BRIDE' },
+      include: { brideProfile: true },
+    });
+    if (!bride) throw new NotFoundException('Bride not found');
+
+    const userData: Record<string, unknown> = {};
+    const profileData: Record<string, unknown> = {};
+
+    // User fields
+    if (dto.name) userData.name = dto.name;
+    if (dto.email) {
+      const conflict = await this.prisma.user.findFirst({
+        where: { email: dto.email, NOT: { id } },
+      });
+      if (conflict) throw new ConflictException('Email already in use');
+      userData.email = dto.email;
+    }
+
+    // Profile fields
+    if (dto.brideType !== undefined) profileData.brideType = dto.brideType;
+    if (dto.weddingDate !== undefined)
+      profileData.weddingDate = dto.weddingDate
+        ? new Date(dto.weddingDate)
+        : null;
+    if (dto.phone !== undefined) profileData.phone = dto.phone;
+    if (dto.partnerName !== undefined)
+      profileData.partnerName = dto.partnerName;
+    if (dto.venueName !== undefined) profileData.venueName = dto.venueName;
+    if (dto.notes !== undefined) profileData.notes = dto.notes;
+    if (dto.totalGownAmount !== undefined)
+      profileData.totalGownAmount = dto.totalGownAmount;
+
+    // Update user and profile
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: {
+        ...userData,
+        ...(Object.keys(profileData).length > 0 && {
+          brideProfile: {
+            update: profileData,
+          },
+        }),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        updatedAt: true,
+        brideProfile: true,
+      },
+    });
+
+    return updated;
   }
 
   async createAdmin(dto: CreateAdminDto) {

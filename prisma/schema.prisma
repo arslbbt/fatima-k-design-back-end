@@ -102,6 +102,7 @@ model BrideProfile {
   dietaryNotes     String?    @map("dietary_notes")
   stylePreferences String?    @map("style_preferences")
   notes            String?
+  totalGownAmount  Decimal?   @db.Decimal(10, 2) @map("total_gown_amount")
   stage            BrideStage @default(CONSULTATION)
   createdAt        DateTime   @default(now()) @map("created_at")
 

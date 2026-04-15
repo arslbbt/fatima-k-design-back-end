@@ -6,8 +6,10 @@ import {
   IsOptional,
   IsDateString,
   IsEnum,
+  IsNumber,
+  Min,
 } from 'class-validator';
-import { BrideType } from '@prisma/client';
+import { BrideType, AppointmentTitle } from '@prisma/client';
 
 export class RegisterBrideDto {
   @ApiProperty() @IsString() name: string;
@@ -22,4 +24,21 @@ export class RegisterBrideDto {
   @ApiPropertyOptional() @IsOptional() @IsString() partnerName?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() venueName?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalGownAmount?: number;
+
+  // Initial payment fields
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0.01)
+  initialPaymentAmount?: number;
+  @ApiPropertyOptional({ enum: AppointmentTitle })
+  @IsOptional()
+  @IsEnum(AppointmentTitle)
+  initialPaymentType?: AppointmentTitle;
+  @ApiPropertyOptional() @IsOptional() @IsString() initialPaymentNotes?: string;
 }

@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
-import { PaymentStatus, PaymentType, Role } from '@prisma/client';
+import { PaymentStatus, AppointmentTitle, Role } from '@prisma/client';
 import type { IMailService } from '../../common/mail/mail.interface';
 import { MAIL_SERVICE } from '../../common/mail/mail.interface';
 import { ConfigService } from '@nestjs/config';
@@ -22,12 +22,22 @@ export class PaymentsService {
     private config: ConfigService,
   ) {}
 
-  private getPaymentLabel(type: PaymentType | string): string {
+  private getPaymentLabel(type: AppointmentTitle | string): string {
     const labels: Record<string, string> = {
-      BOOKING_DEPOSIT: 'Booking Deposit',
-      FABRICATION: 'Fabrication',
-      CONSTRUCTION: 'Construction',
-      FINAL_BALANCE: 'Final Balance',
+      // Shared stages
+      CONSULTATION: 'Consultation',
+      ALTERATION: 'Alteration',
+      GOWN_COMPLETE: 'Gown Complete',
+      COLLECTION_READY: 'Collection Ready',
+      // Custom dress flow
+      MEASUREMENTS: 'Measurements',
+      CALICO: 'Calico',
+      GOWN_IN_FABRIC: 'Gown in Fabric',
+      DETAIL_ON: 'Detail On',
+      // RTW flow
+      GOWN_TRY_ON: 'Gown Try On',
+      // Generic
+      CUSTOM: 'Custom',
     };
     return labels[type] || type;
   }

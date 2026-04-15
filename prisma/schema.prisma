@@ -36,13 +36,6 @@ enum AppointmentTitle {
   CUSTOM
 }
 
-enum PaymentType {
-  BOOKING_DEPOSIT
-  FABRICATION
-  CONSTRUCTION
-  FINAL_BALANCE
-}
-
 enum PaymentStatus {
   PAID
   PENDING
@@ -197,17 +190,17 @@ model Favorite {
 }
 
 model Payment {
-  id              String        @id @default(uuid())
-  brideId         String        @map("bride_id")
-  amount          Decimal       @db.Decimal(10, 2)
-  paymentType     PaymentType   @map("payment_type")
-  status          PaymentStatus @default(PENDING)
-  dueDate         DateTime?     @map("due_date")
-  paidDate        DateTime?     @map("paid_date")
-  reminderSentAt  DateTime?     @map("reminder_sent_at")
+  id              String          @id @default(uuid())
+  brideId         String          @map("bride_id")
+  amount          Decimal         @db.Decimal(10, 2)
+  paymentType     AppointmentTitle @map("payment_type")
+  status          PaymentStatus   @default(PENDING)
+  dueDate         DateTime?       @map("due_date")
+  paidDate        DateTime?       @map("paid_date")
+  reminderSentAt  DateTime?       @map("reminder_sent_at")
   notes           String?
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
 
   bride User @relation(fields: [brideId], references: [id], onDelete: Cascade)
 

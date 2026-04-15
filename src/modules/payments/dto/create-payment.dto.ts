@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PaymentType } from '@prisma/client';
+import { AppointmentTitle } from '@prisma/client';
 import {
   IsBoolean,
   IsDateString,
@@ -14,9 +14,9 @@ import {
 export class CreatePaymentDto {
   @ApiProperty() @IsUUID() brideId: string;
 
-  @ApiProperty({ enum: PaymentType })
-  @IsEnum(PaymentType)
-  paymentType: PaymentType;
+  @ApiProperty({ enum: AppointmentTitle })
+  @IsEnum(AppointmentTitle)
+  paymentType: AppointmentTitle;
 
   @ApiProperty({ example: 2500 }) @IsNumber() @Min(0.01) amount: number;
 

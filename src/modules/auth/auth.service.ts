@@ -3,7 +3,6 @@ import {
   ConflictException,
   UnauthorizedException,
   NotFoundException,
-  Inject,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -12,8 +11,8 @@ import { RegisterBrideDto } from './dto/register-bride.dto';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import * as bcrypt from 'bcrypt';
-import type { IMailService } from '../../common/mail/mail.interface';
-import { MAIL_SERVICE } from '../../common/mail/mail.interface';
+import { NotificationService } from '../../common/notifications/notification.service';
+import { buildNotificationMessage } from '../../common/utils/notification.util';
 
 @Injectable()
 export class AuthService {
@@ -22,7 +21,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
-    @Inject(MAIL_SERVICE) private mailService: IMailService,
+    private notificationService: NotificationService,
   ) {}
 
   async registerBride(dto: RegisterBrideDto) {
@@ -57,19 +56,32 @@ export class AuthService {
       },
     });
 
-    // Send welcome email with login credentials
+    // Send welcome email + SMS with login credentials
+    let notificationStatus = {
+      emailSent: false,
+      smsSent: false,
+      message: 'Notification failed',
+    };
+
     try {
-      await this.mailService.sendWelcomeEmail(
-        user.name,
-        user.email,
-        dto.password,
-      );
+      const result = await this.notificationService.sendWelcome({
+        brideName: user.name,
+        brideEmail: user.email,
+        bridePhone: user.brideProfile?.phone,
+        temporaryPassword: dto.password,
+      });
+
+      notificationStatus = {
+        emailSent: result.emailSent,
+        smsSent: result.smsSent,
+        message: buildNotificationMessage(result),
+      };
     } catch (err) {
-      this.logger.error('Failed to send welcome email', err);
+      this.logger.error('Failed to send welcome notification', err);
       // Don't throw - user is created successfully
     }
 
-    return user;
+    return { ...user, notificationStatus };
   }
 
   async login(dto: LoginDto) {

@@ -3,7 +3,6 @@ import {
   ConflictException,
   NotFoundException,
   BadRequestException,
-  Inject,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
@@ -12,8 +11,8 @@ import { UpdateAdminDto } from './dto/update-admin.dto';
 import { ResetAdminPasswordDto } from './dto/reset-admin-password.dto';
 import { RegisterBrideDto } from '../auth/dto/register-bride.dto';
 import * as bcrypt from 'bcrypt';
-import type { IMailService } from '../../common/mail/mail.interface';
-import { MAIL_SERVICE } from '../../common/mail/mail.interface';
+import { NotificationService } from '../../common/notifications/notification.service';
+import { buildNotificationMessage } from '../../common/utils/notification.util';
 
 @Injectable()
 export class AdminService {
@@ -21,7 +20,7 @@ export class AdminService {
 
   constructor(
     private prisma: PrismaService,
-    @Inject(MAIL_SERVICE) private mailService: IMailService,
+    private notificationService: NotificationService,
   ) {}
 
   async listAllUsers(params: {
@@ -133,19 +132,32 @@ export class AdminService {
       });
     }
 
-    // Send welcome email with login credentials
+    // Send welcome email + SMS with login credentials
+    let notificationStatus = {
+      emailSent: false,
+      smsSent: false,
+      message: 'Notification failed',
+    };
+
     try {
-      await this.mailService.sendWelcomeEmail(
-        user.name,
-        user.email,
-        dto.password,
-      );
+      const result = await this.notificationService.sendWelcome({
+        brideName: user.name,
+        brideEmail: user.email,
+        bridePhone: user.brideProfile?.phone,
+        temporaryPassword: dto.password,
+      });
+
+      notificationStatus = {
+        emailSent: result.emailSent,
+        smsSent: result.smsSent,
+        message: buildNotificationMessage(result),
+      };
     } catch (err) {
-      this.logger.error('Failed to send welcome email', err);
+      this.logger.error('Failed to send welcome notification', err);
       // Don't throw - user is created successfully
     }
 
-    return user;
+    return { ...user, notificationStatus };
   }
 
   async updateBride(id: string, dto: any) {

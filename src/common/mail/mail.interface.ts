@@ -2,6 +2,7 @@ export interface AppointmentEmailContext {
   brideName: string;
   brideEmail: string;
   title: string;
+  description: string | null;
   location: string | null;
   startTime: Date;
   endTime: Date;

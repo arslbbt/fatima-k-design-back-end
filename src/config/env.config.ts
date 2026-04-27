@@ -19,6 +19,12 @@ export default () => ({
     fromName: process.env.MAILJET_FROM_NAME || 'Fatima K Design',
   },
 
+  twilio: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID,
+    authToken: process.env.TWILIO_AUTH_TOKEN,
+    fromPhone: process.env.TWILIO_FROM_PHONE,
+  },
+
   google: {
     clientEmail: process.env.GOOGLE_CLIENT_EMAIL,
     privateKey: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),

@@ -3,11 +3,11 @@ import { AppointmentsService } from './appointments.service';
 import { AppointmentsController } from './appointments.controller';
 import { AppointmentsScheduler } from './appointments.scheduler';
 import { PrismaService } from '../../database/prisma.service';
-import { MailModule } from '../../common/mail/mail.module';
+import { NotificationModule } from '../../common/notifications/notification.module';
 import { GoogleCalendarModule } from '../../common/google-calendar/google-calendar.module';
 
 @Module({
-  imports: [MailModule, GoogleCalendarModule],
+  imports: [NotificationModule, GoogleCalendarModule],
   controllers: [AppointmentsController],
   providers: [AppointmentsService, AppointmentsScheduler, PrismaService],
   exports: [AppointmentsService],

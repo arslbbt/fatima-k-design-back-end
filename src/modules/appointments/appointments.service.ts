@@ -2,13 +2,12 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  Inject,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { GoogleCalendarService } from '../../common/google-calendar/google-calendar.service';
-import { MAIL_SERVICE } from '../../common/mail/mail.interface';
-import type { IMailService } from '../../common/mail/mail.interface';
+import { NotificationService } from '../../common/notifications/notification.service';
+import { buildNotificationMessage } from '../../common/utils/notification.util';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { randomUUID } from 'crypto';
@@ -34,7 +33,13 @@ const APPOINTMENT_SELECT = {
 // Full appointment shape including bride relation — used in update/remove
 const APPOINTMENT_WITH_BRIDE = {
   ...APPOINTMENT_SELECT,
-  bride: { select: { name: true, email: true } },
+  bride: {
+    select: {
+      name: true,
+      email: true,
+      brideProfile: { select: { phone: true } },
+    },
+  },
 } as const;
 
 @Injectable()
@@ -44,13 +49,18 @@ export class AppointmentsService {
   constructor(
     private prisma: PrismaService,
     private googleCalendar: GoogleCalendarService,
-    @Inject(MAIL_SERVICE) private mailService: IMailService,
+    private notificationService: NotificationService,
   ) {}
 
   async create(dto: CreateAppointmentDto, adminId: string) {
     const bride = await this.prisma.user.findFirst({
       where: { id: dto.brideId, role: 'BRIDE' },
-      select: { id: true, name: true, email: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        brideProfile: { select: { phone: true } },
+      },
     });
     if (!bride) throw new NotFoundException('Bride not found');
 
@@ -108,25 +118,42 @@ export class AppointmentsService {
       },
     });
 
-    // Confirmation email with ICS
+    // Send email + SMS notification
+    let notificationStatus = {
+      emailSent: false,
+      smsSent: false,
+      message: 'Notification failed',
+    };
+
     try {
-      await this.mailService.sendAppointmentConfirmation({
-        brideName: bride.name,
-        brideEmail: bride.email,
-        title: displayTitle,
-        location: dto.location ?? null,
-        startTime,
-        endTime,
-        whatToBring: dto.whatToBring ?? null,
-        ics: { uid: icsUid, sequence: 0, method: 'REQUEST' },
-      });
+      const result = await this.notificationService.sendAppointmentConfirmation(
+        {
+          brideName: bride.name,
+          brideEmail: bride.email,
+          bridePhone: bride.brideProfile?.phone,
+          title: displayTitle,
+          description: dto.description ?? null,
+          location: dto.location ?? null,
+          startTime,
+          endTime,
+          whatToBring: dto.whatToBring ?? null,
+          ics: { uid: icsUid, sequence: 0, method: 'REQUEST' },
+        },
+      );
+
+      notificationStatus = {
+        emailSent: result.emailSent,
+        smsSent: result.smsSent,
+        message: buildNotificationMessage(result),
+      };
     } catch (err) {
-      this.logger.error('Failed to send confirmation email', err);
+      this.logger.error('Failed to send confirmation notification', err);
     }
 
     return {
       ...appointment,
       googleEventId: googleEventId ?? appointment.googleEventId,
+      notificationStatus,
     };
   }
 
@@ -232,6 +259,10 @@ export class AppointmentsService {
       brideName: appointment.bride.name,
       brideEmail: appointment.bride.email,
       title: (dto.title ?? appointment.title).replace('_', ' '),
+      description:
+        dto.description !== undefined
+          ? dto.description
+          : appointment.description,
       location:
         dto.location !== undefined ? dto.location : appointment.location,
       startTime,
@@ -256,12 +287,15 @@ export class AppointmentsService {
         },
       });
       try {
-        await this.mailService.sendAppointmentCancellation(emailCtx);
+        await this.notificationService.sendAppointmentCancellation({
+          ...emailCtx,
+          bridePhone: appointment.bride.brideProfile?.phone,
+        });
         this.logger.log(
-          `Cancellation email sent to ${appointment.bride.email}`,
+          `Cancellation notification sent to ${appointment.bride.email}`,
         );
       } catch (err) {
-        this.logger.error('Failed to send cancellation email', err);
+        this.logger.error('Failed to send cancellation notification', err);
       }
     } else {
       await this.prisma.notification.create({
@@ -272,10 +306,15 @@ export class AppointmentsService {
         },
       });
       try {
-        await this.mailService.sendAppointmentUpdate(emailCtx);
-        this.logger.log(`Update email sent to ${appointment.bride.email}`);
+        await this.notificationService.sendAppointmentUpdate({
+          ...emailCtx,
+          bridePhone: appointment.bride.brideProfile?.phone,
+        });
+        this.logger.log(
+          `Update notification sent to ${appointment.bride.email}`,
+        );
       } catch (err) {
-        this.logger.error('Failed to send update email', err);
+        this.logger.error('Failed to send update notification', err);
       }
     }
 
@@ -299,10 +338,12 @@ export class AppointmentsService {
       const newSequence = (appointment.icsSequence ?? 0) + 1;
 
       try {
-        await this.mailService.sendAppointmentCancellation({
+        await this.notificationService.sendAppointmentCancellation({
           brideName: appointment.bride.name,
           brideEmail: appointment.bride.email,
+          bridePhone: appointment.bride.brideProfile?.phone,
           title: appointment.title.replace('_', ' '),
+          description: appointment.description,
           location: appointment.location,
           startTime: appointment.startTime,
           endTime: appointment.endTime,
@@ -310,10 +351,13 @@ export class AppointmentsService {
           ics: { uid: icsUid, sequence: newSequence, method: 'CANCEL' },
         });
         this.logger.log(
-          `Cancellation email sent to ${appointment.bride.email}`,
+          `Cancellation notification sent to ${appointment.bride.email}`,
         );
       } catch (err) {
-        this.logger.error('Failed to send cancellation email on delete', err);
+        this.logger.error(
+          'Failed to send cancellation notification on delete',
+          err,
+        );
       }
 
       await this.prisma.notification.create({
@@ -348,20 +392,29 @@ export class AppointmentsService {
         id: true,
         brideId: true,
         title: true,
+        description: true,
         location: true,
         startTime: true,
         endTime: true,
         whatToBring: true,
-        bride: { select: { name: true, email: true } },
+        bride: {
+          select: {
+            name: true,
+            email: true,
+            brideProfile: { select: { phone: true } },
+          },
+        },
       },
     });
 
     for (const appt of upcoming) {
       try {
-        await this.mailService.sendAppointmentReminder({
+        await this.notificationService.sendAppointmentReminder({
           brideName: appt.bride.name,
           brideEmail: appt.bride.email,
+          bridePhone: appt.bride.brideProfile?.phone,
           title: appt.title.replace('_', ' '),
+          description: appt.description,
           location: appt.location,
           startTime: appt.startTime,
           endTime: appt.endTime,

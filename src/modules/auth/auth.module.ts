@@ -6,7 +6,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrismaService } from '../../database/prisma.service';
-import { MailModule } from '../../common/mail/mail.module';
+import { NotificationModule } from '../../common/notifications/notification.module';
 
 @Module({
   imports: [
@@ -19,7 +19,7 @@ import { MailModule } from '../../common/mail/mail.module';
         signOptions: { expiresIn: '7d' },
       }),
     }),
-    MailModule,
+    NotificationModule,
   ],
   providers: [AuthService, JwtStrategy, PrismaService],
   controllers: [AuthController],

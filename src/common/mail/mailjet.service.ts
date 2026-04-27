@@ -491,6 +491,16 @@ export class MailjetService implements IMailService {
                         <p style="margin:4px 0 0;color:#2C2C2C;font-size:15px;font-weight:600;">${ctx.title}</p>
                       </td>
                     </tr>
+                    ${
+                      ctx.description
+                        ? `<tr>
+                      <td style="padding:12px 0;border-bottom:1px solid #F0EBE4;">
+                        <p style="margin:0;color:#888;font-size:12px;">Description</p>
+                        <p style="margin:4px 0 0;color:#2C2C2C;font-size:15px;line-height:1.5;">${ctx.description}</p>
+                      </td>
+                    </tr>`
+                        : ''
+                    }
                     <tr>
                       <td style="padding:12px 0;border-bottom:1px solid #F0EBE4;">
                         <p style="margin:0;color:#888;font-size:12px;">Date & Time</p>

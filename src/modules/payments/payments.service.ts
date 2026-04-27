@@ -1,15 +1,14 @@
 import {
   Injectable,
   NotFoundException,
-  Inject,
   Logger,
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { PaymentStatus, AppointmentTitle, Role } from '@prisma/client';
-import type { IMailService } from '../../common/mail/mail.interface';
-import { MAIL_SERVICE } from '../../common/mail/mail.interface';
+import { NotificationService } from '../../common/notifications/notification.service';
+import { buildNotificationMessage } from '../../common/utils/notification.util';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
@@ -18,7 +17,7 @@ export class PaymentsService {
 
   constructor(
     private prisma: PrismaService,
-    @Inject(MAIL_SERVICE) private mailService: IMailService,
+    private notificationService: NotificationService,
     private config: ConfigService,
   ) {}
 
@@ -65,23 +64,36 @@ export class PaymentsService {
       include: { bride: true },
     });
 
+    let notificationStatus = {
+      emailSent: false,
+      smsSent: false,
+      message: 'Payment marked as paid, no notification sent',
+    };
+
     if (!dto.markAsPaid) {
       const portalUrl = `${this.config.get<string>('frontend.url')}/bride/payments`;
       try {
-        await this.mailService.sendPaymentRequest({
+        const result = await this.notificationService.sendPaymentRequest({
           brideName: bride.name,
           brideEmail: bride.email,
+          bridePhone: bride.brideProfile?.phone,
           amount: dto.amount,
           label: this.getPaymentLabel(dto.paymentType),
           dueDate: dto.dueDate ? new Date(dto.dueDate) : new Date(),
           paymentUrl: portalUrl,
         });
+
+        notificationStatus = {
+          emailSent: result.emailSent,
+          smsSent: result.smsSent,
+          message: buildNotificationMessage(result),
+        };
       } catch (err) {
-        this.logger.error('Failed to send payment request email', err);
+        this.logger.error('Failed to send payment request notification', err);
       }
     }
 
-    return payment;
+    return { ...payment, notificationStatus };
   }
 
   async markAsPaid(id: string) {
@@ -104,7 +116,7 @@ export class PaymentsService {
   ) {
     const payment = await this.prisma.payment.findUnique({
       where: { id },
-      include: { bride: true },
+      include: { bride: { include: { brideProfile: true } } },
     });
     if (!payment) throw new NotFoundException('Payment not found');
     if (payment.status === PaymentStatus.PAID) {
@@ -124,33 +136,47 @@ export class PaymentsService {
           paidDate: new Date(),
         }),
       },
-      include: { bride: true },
+      include: { bride: { include: { brideProfile: true } } },
     });
 
     // Send email notification about payment update (only if not marked as paid)
+    let notificationStatus = {
+      emailSent: false,
+      smsSent: false,
+      message: 'Payment marked as paid, no notification sent',
+    };
+
     if (!data.markAsPaid) {
       const portalUrl = `${this.config.get<string>('frontend.url')}/bride/payments`;
       try {
-        await this.mailService.sendPaymentRequest({
+        const result = await this.notificationService.sendPaymentRequest({
           brideName: payment.bride.name,
           brideEmail: payment.bride.email,
+          bridePhone: payment.bride.brideProfile?.phone,
           amount: data.amount ?? Number(payment.amount),
           label: this.getPaymentLabel(payment.paymentType),
           dueDate: data.dueDate ? new Date(data.dueDate) : payment.dueDate,
           paymentUrl: portalUrl,
         });
+
+        notificationStatus = {
+          emailSent: result.emailSent,
+          smsSent: result.smsSent,
+          message: buildNotificationMessage(result),
+        };
       } catch (err) {
-        this.logger.error('Failed to send payment update email', err);
+        this.logger.error('Failed to send payment update notification', err);
       }
     }
 
-    return updatedPayment;
+    return { ...updatedPayment, notificationStatus };
   }
 
   async sendReminder(brideId: string) {
     const bride = await this.prisma.user.findUnique({
       where: { id: brideId },
       include: {
+        brideProfile: true,
         payments: {
           where: { status: PaymentStatus.PENDING },
           orderBy: { dueDate: 'asc' },
@@ -176,29 +202,37 @@ export class PaymentsService {
     }));
 
     try {
-      await this.mailService.sendPaymentReminder({
+      const result = await this.notificationService.sendPaymentReminder({
         brideName: bride.name,
         brideEmail: bride.email,
+        bridePhone: bride.brideProfile?.phone,
         payments: unpaidPayments,
         paymentUrl: portalUrl,
       });
+
+      // Update reminderSentAt for all pending payments
+      await this.prisma.payment.updateMany({
+        where: {
+          brideId,
+          status: PaymentStatus.PENDING,
+        },
+        data: {
+          reminderSentAt: new Date(),
+        } as any,
+      });
+
+      return {
+        message: 'Reminder sent successfully',
+        notificationStatus: {
+          emailSent: result.emailSent,
+          smsSent: result.smsSent,
+          message: buildNotificationMessage(result),
+        },
+      };
     } catch (err) {
-      this.logger.error('Failed to send payment reminder email', err);
+      this.logger.error('Failed to send payment reminder notification', err);
       throw err;
     }
-
-    // Update reminderSentAt for all pending payments
-    await this.prisma.payment.updateMany({
-      where: {
-        brideId,
-        status: PaymentStatus.PENDING,
-      },
-      data: {
-        reminderSentAt: new Date(),
-      } as any,
-    });
-
-    return { message: 'Reminder sent successfully' };
   }
 
   async getAdminPayments(query: {

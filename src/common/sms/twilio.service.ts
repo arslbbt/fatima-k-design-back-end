@@ -91,15 +91,23 @@ export class TwilioService implements ISmsService {
 
   async sendPaymentRequest(ctx: PaymentSmsContext): Promise<void> {
     const amount = Number(ctx.amount);
-    const dueStr = ctx.dueDate
-      ? ` due ${ctx.dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
-      : '';
-    const message = `Hi ${ctx.brideName}, a pending payment of $${amount.toLocaleString()} for ${ctx.label}${dueStr} has been added to your account. Check your portal for details. - Fatima K Design`;
+    let message = `Hi ${ctx.brideName}, you have a new payment due for ${ctx.label}: $${amount.toLocaleString()}`;
+
+    if (ctx.dueDate) {
+      const dueDate = ctx.dueDate.toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+      message += `. Due date: ${dueDate}`;
+    }
+
+    message += `. Please check your portal for more details. - Fatima K Design`;
     await this.send(ctx.bridePhone, message);
   }
 
   async sendPaymentReminder(ctx: PaymentReminderSmsContext): Promise<void> {
-    const message = `Hi ${ctx.brideName}, you have ${ctx.paymentCount} pending payment${ctx.paymentCount > 1 ? 's' : ''} totaling $${ctx.totalAmount.toLocaleString()}. Please check your portal. - Fatima K Design`;
+    const message = `Hi ${ctx.brideName}, payment reminder: You have ${ctx.paymentCount} pending payment${ctx.paymentCount > 1 ? 's' : ''} totaling $${ctx.totalAmount.toLocaleString()}. Please check your portal to complete payment. - Fatima K Design`;
     await this.send(ctx.bridePhone, message);
   }
 

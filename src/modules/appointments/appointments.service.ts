@@ -114,7 +114,7 @@ export class AppointmentsService {
       data: {
         brideId: dto.brideId,
         type: 'APPOINTMENT',
-        message: `Your ${displayTitle} appointment has been scheduled for ${startTime.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.`,
+        message: `Your ${displayTitle} appointment has been scheduled for ${startTime.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Australia/Sydney' })}.`,
       },
     });
 

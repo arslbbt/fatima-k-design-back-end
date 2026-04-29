@@ -30,12 +30,13 @@ export class TwilioService implements ISmsService {
   }
 
   private formatDateTime(date: Date): string {
-    return date.toLocaleString('en-GB', {
+    return date.toLocaleString('en-AU', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'Australia/Sydney',
     });
   }
 
@@ -94,10 +95,11 @@ export class TwilioService implements ISmsService {
     let message = `Hi ${ctx.brideName}, you have a new payment due for ${ctx.label}: $${amount.toLocaleString()}`;
 
     if (ctx.dueDate) {
-      const dueDate = ctx.dueDate.toLocaleDateString('en-GB', {
+      const dueDate = ctx.dueDate.toLocaleDateString('en-AU', {
         day: 'numeric',
         month: 'short',
         year: 'numeric',
+        timeZone: 'Australia/Sydney',
       });
       message += `. Due date: ${dueDate}`;
     }

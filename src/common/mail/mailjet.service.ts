@@ -30,13 +30,14 @@ export class MailjetService implements IMailService {
   }
 
   private formatDateTime(date: Date): string {
-    return date.toLocaleString('en-GB', {
+    return date.toLocaleString('en-AU', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'Australia/Sydney',
     });
   }
 
@@ -211,7 +212,7 @@ export class MailjetService implements IMailService {
             <tr>
               <td style="width:70%;">
                 <p style="margin:0 0 4px;color:#2C2C2C;font-size:15px;font-weight:600;">${p.label}</p>
-                <p style="margin:0;color:#888;font-size:13px;">Due: ${p.dueDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                <p style="margin:0;color:#888;font-size:13px;">Due: ${p.dueDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Australia/Sydney' })}</p>
               </td>
               <td style="width:30%;text-align:right;">
                 <p style="margin:0;color:#D4A373;font-size:18px;font-weight:600;">$${amount.toLocaleString()}</p>
@@ -384,6 +385,7 @@ export class MailjetService implements IMailService {
           day: 'numeric',
           month: 'long',
           year: 'numeric',
+          timeZone: 'Australia/Sydney',
         })
       : 'No due date specified';
 

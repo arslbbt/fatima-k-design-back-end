@@ -570,6 +570,8 @@ export class PaymentsService {
         total: totalAmount,
         paid: paidAmount,
         status: currentStatus,
+        country: bride.brideProfile?.country || 'AU',
+        currency: bride.brideProfile?.currency || 'AUD',
         payments: bride.payments,
       };
     });

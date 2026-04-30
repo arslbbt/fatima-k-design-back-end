@@ -13,6 +13,7 @@ import { RegisterBrideDto } from '../auth/dto/register-bride.dto';
 import * as bcrypt from 'bcrypt';
 import { NotificationService } from '../../common/notifications/notification.service';
 import { buildNotificationMessage } from '../../common/utils/notification.util';
+import { CurrencyService } from '../../common/currency/currency.service';
 
 @Injectable()
 export class AdminService {
@@ -21,6 +22,7 @@ export class AdminService {
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
+    private currencyService: CurrencyService,
   ) {}
 
   async listAllUsers(params: {
@@ -88,6 +90,10 @@ export class AdminService {
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
+    // Determine country and currency
+    const countryCode = dto.country || 'AU'; // Default to Australia
+    const currency = this.currencyService.getCurrencyByCountryCode(countryCode);
+
     // Create bride with profile
     const user = await this.prisma.user.create({
       data: {
@@ -104,6 +110,8 @@ export class AdminService {
             venueName: dto.venueName ?? null,
             notes: dto.notes ?? null,
             totalGownAmount: dto.totalGownAmount ?? null,
+            country: countryCode,
+            currency: currency,
           },
         },
       },
@@ -119,17 +127,36 @@ export class AdminService {
 
     // Create initial payment if provided
     if (dto.initialPaymentAmount && dto.initialPaymentType) {
-      await this.prisma.payment.create({
-        data: {
-          brideId: user.id,
-          amount: dto.initialPaymentAmount,
-          paymentType: dto.initialPaymentType,
-          status: 'PAID',
-          paidDate: new Date(),
-          dueDate: new Date(),
-          notes: dto.initialPaymentNotes ?? null,
-        },
-      });
+      try {
+        // Convert payment to AUD for admin reporting (required)
+        const exchangeData = await this.currencyService.convertToAUD(
+          dto.initialPaymentAmount,
+          currency,
+        );
+
+        await this.prisma.payment.create({
+          data: {
+            brideId: user.id,
+            amount: dto.initialPaymentAmount,
+            currency: currency,
+            paymentType: dto.initialPaymentType,
+            status: 'PAID',
+            paidDate: new Date(),
+            dueDate: new Date(),
+            notes: dto.initialPaymentNotes ?? null,
+            exchangeRateToAUD: exchangeData.exchangeRate,
+            amountInAUD: exchangeData.amountInAUD,
+            exchangeRateSource: exchangeData.source,
+            convertedAt: exchangeData.convertedAt,
+          },
+        });
+      } catch (error) {
+        this.logger.error(
+          `Failed to convert ${currency} to AUD. Initial payment not created:`,
+          error,
+        );
+        // Bride is created successfully, but initial payment is skipped
+      }
     }
 
     // Send welcome email + SMS with login credentials
@@ -193,6 +220,12 @@ export class AdminService {
     if (dto.notes !== undefined) profileData.notes = dto.notes;
     if (dto.totalGownAmount !== undefined)
       profileData.totalGownAmount = dto.totalGownAmount;
+    if (dto.country !== undefined) {
+      profileData.country = dto.country;
+      profileData.currency = this.currencyService.getCurrencyByCountryCode(
+        dto.country,
+      );
+    }
 
     // Update user and profile
     const updated = await this.prisma.user.update({

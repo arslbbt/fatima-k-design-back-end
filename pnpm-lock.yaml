@@ -47,6 +47,12 @@ importers:
       cookie-parser:
         specifier: ^1.4.7
         version: 1.4.7
+      country-state-city:
+        specifier: ^3.2.1
+        version: 3.2.1
+      easy-currencies:
+        specifier: ^1.8.3
+        version: 1.8.3
       googleapis:
         specifier: ^171.4.0
         version: 171.4.0
@@ -1630,6 +1636,9 @@ packages:
       typescript:
         optional: true
 
+  country-state-city@3.2.1:
+    resolution: {integrity: sha512-kxbanqMc6izjhc/EHkGPCTabSPZ2G6eG4/97akAYHJUN4stzzFEvQPZoF8oXDQ+10gM/O/yUmISCR1ZVxyb6EA==}
+
   create-require@1.1.1:
     resolution: {integrity: sha512-dcKFX3jn0MpIaXjisoRvexIJVEKzaq7z2rZKxf+MSr9TkdmHmsU4m2lcLojrj/FHl8mk5VxMmYA+ftRkP/3oKQ==}
 
@@ -1722,6 +1731,9 @@ packages:
 
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
+
+  easy-currencies@1.8.3:
+    resolution: {integrity: sha512-90jvPWyzk7UJArLX/8FB2XPHhi78ByF11EcpjDaWPhIN6ApTn4GHIDRzeU9OTNsJvFJmo57zKBlLfYfW7cvJAQ==}
 
   ecdsa-sig-formatter@1.0.11:
     resolution: {integrity: sha512-nagl3RYrbNv6kQkeJIpt6NJZy8twLB/2vtz6yN9Z4vRKHN4/QZJIEbqohALSgwKdnksuY3k5Addp5lg8sVoVcQ==}
@@ -5156,6 +5168,8 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
+  country-state-city@3.2.1: {}
+
   create-require@1.1.1: {}
 
   cron@4.4.0:
@@ -5221,6 +5235,12 @@ snapshots:
       gopd: 1.2.0
 
   eastasianwidth@0.2.0: {}
+
+  easy-currencies@1.8.3:
+    dependencies:
+      axios: 1.13.6
+    transitivePeerDependencies:
+      - debug
 
   ecdsa-sig-formatter@1.0.11:
     dependencies:

@@ -24,6 +24,13 @@ export class RegisterBrideDto {
   @ApiPropertyOptional() @IsOptional() @IsString() partnerName?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() venueName?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+  @ApiPropertyOptional({
+    description: 'Country ISO code (e.g., US, AU, GB)',
+    example: 'AU',
+  })
+  @IsOptional()
+  @IsString()
+  country?: string;
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()

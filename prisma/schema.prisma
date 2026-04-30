@@ -104,6 +104,8 @@ model BrideProfile {
   notes            String?
   totalGownAmount  Decimal?   @db.Decimal(10, 2) @map("total_gown_amount")
   stage            BrideStage @default(CONSULTATION)
+  country          String     @default("Australia")
+  currency         String     @default("AUD")
   createdAt        DateTime   @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -191,17 +193,22 @@ model Favorite {
 }
 
 model Payment {
-  id              String          @id @default(uuid())
-  brideId         String          @map("bride_id")
-  amount          Decimal         @db.Decimal(10, 2)
-  paymentType     AppointmentTitle @map("payment_type")
-  status          PaymentStatus   @default(PENDING)
-  dueDate         DateTime?       @map("due_date")
-  paidDate        DateTime?       @map("paid_date")
-  reminderSentAt  DateTime?       @map("reminder_sent_at")
-  notes           String?
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  id                   String           @id @default(uuid())
+  brideId              String           @map("bride_id")
+  amount               Decimal          @db.Decimal(10, 2)
+  currency             String           @default("AUD")
+  paymentType          AppointmentTitle @map("payment_type")
+  status               PaymentStatus    @default(PENDING)
+  dueDate              DateTime?        @map("due_date")
+  paidDate             DateTime?        @map("paid_date")
+  reminderSentAt       DateTime?        @map("reminder_sent_at")
+  notes                String?
+  exchangeRateToAUD    Decimal?         @db.Decimal(10, 6) @map("exchange_rate_to_aud")
+  amountInAUD          Decimal?         @db.Decimal(10, 2) @map("amount_in_aud")
+  exchangeRateSource   String?          @map("exchange_rate_source")
+  convertedAt          DateTime?        @map("converted_at")
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
 
   bride User @relation(fields: [brideId], references: [id], onDelete: Cascade)
 

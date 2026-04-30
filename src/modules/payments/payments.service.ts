@@ -10,6 +10,7 @@ import { PaymentStatus, AppointmentTitle, Role } from '@prisma/client';
 import { NotificationService } from '../../common/notifications/notification.service';
 import { buildNotificationMessage } from '../../common/utils/notification.util';
 import { ConfigService } from '@nestjs/config';
+import { CurrencyService } from '../../common/currency/currency.service';
 
 @Injectable()
 export class PaymentsService {
@@ -19,6 +20,7 @@ export class PaymentsService {
     private prisma: PrismaService,
     private notificationService: NotificationService,
     private config: ConfigService,
+    private currencyService: CurrencyService,
   ) {}
 
   private getPaymentLabel(type: AppointmentTitle | string): string {
@@ -51,15 +53,29 @@ export class PaymentsService {
       throw new NotFoundException('Bride not found');
     }
 
+    // Get bride's currency
+    const brideCurrency = bride.brideProfile?.currency || 'AUD';
+
+    // Convert to AUD for admin reporting (required - will throw error if fails)
+    const exchangeData = await this.currencyService.convertToAUD(
+      dto.amount,
+      brideCurrency,
+    );
+
     const payment = await this.prisma.payment.create({
       data: {
         brideId: dto.brideId,
         amount: dto.amount,
+        currency: brideCurrency,
         paymentType: dto.paymentType,
         dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
         status: dto.markAsPaid ? PaymentStatus.PAID : PaymentStatus.PENDING,
         paidDate: dto.markAsPaid ? new Date() : null,
         notes: dto.notes,
+        exchangeRateToAUD: exchangeData.exchangeRate,
+        amountInAUD: exchangeData.amountInAUD,
+        exchangeRateSource: exchangeData.source,
+        convertedAt: exchangeData.convertedAt,
       },
       include: { bride: true },
     });
@@ -97,11 +113,42 @@ export class PaymentsService {
   }
 
   async markAsPaid(id: string) {
-    const payment = await this.prisma.payment.findUnique({ where: { id } });
+    const payment = await this.prisma.payment.findUnique({
+      where: { id },
+      include: { bride: { include: { brideProfile: true } } },
+    });
     if (!payment) throw new NotFoundException('Payment not found');
+
+    // Get bride's currency and convert to AUD if not already done
+    const brideCurrency = payment.bride.brideProfile?.currency || 'AUD';
+
+    // Convert to AUD if not already converted (required - will throw error if fails)
+    let exchangeData: {
+      amountInAUD: number;
+      exchangeRate: number;
+      source: string;
+      convertedAt: Date;
+    } | null = null;
+
+    if (!payment.exchangeRateToAUD || !payment.amountInAUD) {
+      exchangeData = await this.currencyService.convertToAUD(
+        Number(payment.amount),
+        brideCurrency,
+      );
+    }
+
     return this.prisma.payment.update({
       where: { id },
-      data: { status: PaymentStatus.PAID, paidDate: new Date() },
+      data: {
+        status: PaymentStatus.PAID,
+        paidDate: new Date(),
+        ...(exchangeData && {
+          exchangeRateToAUD: exchangeData.exchangeRate,
+          amountInAUD: exchangeData.amountInAUD,
+          exchangeRateSource: exchangeData.source,
+          convertedAt: exchangeData.convertedAt,
+        }),
+      },
     });
   }
 

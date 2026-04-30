@@ -400,44 +400,66 @@ export class AdminService {
           p.paidDate >= startOfMonth &&
           p.paidDate <= endOfMonth,
       )
-      .reduce((sum, p) => sum + Number(p.amount), 0);
+      .reduce((sum, p) => sum + Number(p.amountInAUD), 0);
 
     // Calculate total outstanding across all brides
     const allBridesWithPayments = await this.prisma.user.findMany({
       where: { role: 'BRIDE' },
       select: {
         id: true,
-        brideProfile: { select: { totalGownAmount: true } },
-        payments: { select: { amount: true, status: true } },
+        brideProfile: {
+          select: { totalGownAmount: true, currency: true },
+        },
+        payments: {
+          select: { amount: true, amountInAUD: true, status: true },
+        },
       },
     });
 
     let outstanding = 0;
     const outstandingBrideIds = new Set<string>();
 
-    allBridesWithPayments.forEach((bride) => {
+    for (const bride of allBridesWithPayments) {
       let brideOutstanding = 0;
 
       if (bride.brideProfile?.totalGownAmount) {
         // If total gown amount is set, calculate: totalGownAmount - totalPaid
         const totalPaid = bride.payments
           .filter((p) => p.status === 'PAID')
-          .reduce((sum, p) => sum + Number(p.amount), 0);
-        brideOutstanding =
-          Number(bride.brideProfile.totalGownAmount) - totalPaid;
+          .reduce((sum, p) => sum + Number(p.amountInAUD), 0);
+
+        // Convert totalGownAmount to AUD
+        const brideCurrency = bride.brideProfile.currency || 'AUD';
+        let totalGownAmountInAUD = Number(bride.brideProfile.totalGownAmount);
+
+        if (brideCurrency !== 'AUD') {
+          try {
+            const converted = await this.currencyService.convertToAUD(
+              totalGownAmountInAUD,
+              brideCurrency,
+            );
+            totalGownAmountInAUD = converted.amountInAUD;
+          } catch (err) {
+            this.logger.warn(
+              `Failed to convert totalGownAmount for bride ${bride.id}`,
+            );
+          }
+        }
+
+        brideOutstanding = totalGownAmountInAUD - totalPaid;
         brideOutstanding = Math.max(0, brideOutstanding);
       } else {
         // Fallback: sum of unpaid payments (old behavior)
         brideOutstanding = bride.payments
           .filter((p) => p.status !== 'PAID')
-          .reduce((sum, p) => sum + Number(p.amount), 0);
+          .reduce((sum, p) => sum + Number(p.amountInAUD), 0);
       }
 
       if (brideOutstanding > 0) {
         outstanding += brideOutstanding;
         outstandingBrideIds.add(bride.id);
       }
-    });
+    }
 
     // ── Recent brides (max 6 custom + 6 ready-to-wear, sorted by wedding date closest first) ──
     const today = new Date();
@@ -465,9 +487,13 @@ export class AdminService {
             phone: true,
             brideType: true,
             totalGownAmount: true,
+            currency: true,
+            country: true,
           },
         },
-        payments: { select: { amount: true, status: true } },
+        payments: {
+          select: { amount: true, amountInAUD: true, status: true },
+        },
       },
       orderBy: [{ brideProfile: { weddingDate: 'asc' } }],
       take: 6,
@@ -496,9 +522,13 @@ export class AdminService {
             phone: true,
             brideType: true,
             totalGownAmount: true,
+            currency: true,
+            country: true,
           },
         },
-        payments: { select: { amount: true, status: true } },
+        payments: {
+          select: { amount: true, amountInAUD: true, status: true },
+        },
       },
       orderBy: [{ brideProfile: { weddingDate: 'asc' } }],
       take: 6,
@@ -542,6 +572,8 @@ export class AdminService {
         createdAt: b.createdAt,
         brideProfile: b.brideProfile,
         balance,
+        currency: b.brideProfile?.currency || 'AUD',
+        country: b.brideProfile?.country || 'AU',
         hasDue: balance > 0,
       };
     });
@@ -558,7 +590,14 @@ export class AdminService {
           where: { status: 'PAID' },
           orderBy: { paidDate: 'desc' },
           take: 5,
-          include: { bride: { select: { name: true } } },
+          include: {
+            bride: {
+              select: {
+                name: true,
+                brideProfile: { select: { currency: true } },
+              },
+            },
+          },
         }),
         this.prisma.fittingPhoto.findMany({
           orderBy: { uploadedAt: 'desc' },
@@ -590,7 +629,7 @@ export class AdminService {
       })),
       ...recentPaidPayments.map((p) => ({
         type: 'payment' as const,
-        label: `Payment recorded: $${Number(p.amount).toLocaleString()}`,
+        label: `Payment recorded: ${Number(p.amount).toLocaleString()} ${p.bride.brideProfile?.currency || 'AUD'}`,
         brideName: p.bride.name,
         timestamp: p.paidDate ?? p.createdAt,
       })),

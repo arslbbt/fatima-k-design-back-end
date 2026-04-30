@@ -337,48 +337,73 @@ export class PaymentsService {
   async getRevenueOverview() {
     const allPayments = await this.prisma.payment.findMany();
 
+    // Use amountInAUD for revenue collected (converted to AUD)
     const revenueCollected = allPayments
       .filter((p) => p.status === PaymentStatus.PAID)
-      .reduce((sum, p) => sum + Number(p.amount), 0);
+      .reduce((sum, p) => sum + Number(p.amountInAUD), 0);
 
     // Calculate total outstanding across all brides using totalGownAmount
     const allBridesWithPayments = await this.prisma.user.findMany({
       where: { role: 'BRIDE' },
       select: {
         id: true,
-        brideProfile: { select: { totalGownAmount: true } },
-        payments: { select: { amount: true, status: true, dueDate: true } },
+        brideProfile: { select: { totalGownAmount: true, currency: true } },
+        payments: {
+          select: {
+            amountInAUD: true,
+            status: true,
+            dueDate: true,
+          },
+        },
       },
     });
 
     let outstanding = 0;
-    allBridesWithPayments.forEach((bride) => {
+    for (const bride of allBridesWithPayments) {
       let brideOutstanding = 0;
 
       if (bride.brideProfile?.totalGownAmount) {
         // If total gown amount is set, calculate: totalGownAmount - totalPaid
         const totalPaid = bride.payments
           .filter((p) => p.status === 'PAID')
-          .reduce((sum, p) => sum + Number(p.amount), 0);
-        brideOutstanding =
-          Number(bride.brideProfile.totalGownAmount) - totalPaid;
+          .reduce((sum, p) => sum + Number(p.amountInAUD), 0);
+
+        // Convert totalGownAmount to AUD
+        const brideCurrency = bride.brideProfile.currency || 'AUD';
+        let totalGownAmountInAUD = Number(bride.brideProfile.totalGownAmount);
+
+        if (brideCurrency !== 'AUD') {
+          try {
+            const converted = await this.currencyService.convertToAUD(
+              totalGownAmountInAUD,
+              brideCurrency,
+            );
+            totalGownAmountInAUD = converted.amountInAUD;
+          } catch (err) {
+            this.logger.warn(
+              `Failed to convert totalGownAmount for bride ${bride.id}, using original amount`,
+            );
+          }
+        }
+
+        brideOutstanding = totalGownAmountInAUD - totalPaid;
         brideOutstanding = Math.max(0, brideOutstanding);
       } else {
         // Fallback: sum of unpaid payments (old behavior)
         brideOutstanding = bride.payments
           .filter((p) => p.status !== 'PAID')
-          .reduce((sum, p) => sum + Number(p.amount), 0);
+          .reduce((sum, p) => sum + Number(p.amountInAUD), 0);
       }
 
       outstanding += brideOutstanding;
-    });
+    }
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-    // Calculate payments due this month (count and amount)
+    // Calculate payments due this month (count and amount in AUD)
     const paymentsDueList = allPayments.filter(
       (p) =>
         p.status === PaymentStatus.PENDING &&
@@ -388,11 +413,11 @@ export class PaymentsService {
     );
     const paymentsDue = paymentsDueList.length;
     const paymentsDueAmount = paymentsDueList.reduce(
-      (sum, p) => sum + Number(p.amount),
+      (sum, p) => sum + Number(p.amountInAUD),
       0,
     );
 
-    // Calculate overdue payments (count and amount)
+    // Calculate overdue payments (count and amount in AUD)
     const overdueList = allPayments.filter(
       (p) =>
         p.status === ('OVERDUE' as any) ||
@@ -402,7 +427,7 @@ export class PaymentsService {
     );
     const overdueCount = overdueList.length;
     const overdueAmount = overdueList.reduce(
-      (sum, p) => sum + Number(p.amount),
+      (sum, p) => sum + Number(p.amountInAUD),
       0,
     );
 
@@ -431,7 +456,8 @@ export class PaymentsService {
     const monthlyData = Array(12).fill(0);
     payments.forEach((p) => {
       if (p.paidDate) {
-        monthlyData[p.paidDate.getMonth()] += Number(p.amount);
+        // Use amountInAUD for aggregated monthly revenue in AUD
+        monthlyData[p.paidDate.getMonth()] += Number(p.amountInAUD);
       }
     });
 

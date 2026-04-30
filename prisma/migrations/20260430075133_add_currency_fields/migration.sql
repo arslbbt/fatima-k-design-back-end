@@ -1,5 +1,5 @@
 -- AlterTable
-ALTER TABLE "bride_profiles" ADD COLUMN     "country" TEXT NOT NULL DEFAULT 'Australia',
+ALTER TABLE "bride_profiles" ADD COLUMN     "country" TEXT NOT NULL DEFAULT 'AU',
 ADD COLUMN     "currency" TEXT NOT NULL DEFAULT 'AUD';
 
 -- AlterTable

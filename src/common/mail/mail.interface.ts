@@ -19,6 +19,7 @@ export interface PaymentEmailContext {
   brideName: string;
   brideEmail: string;
   amount: number;
+  currency: string;
   label: string;
   dueDate: Date | null;
   paymentUrl: string;
@@ -27,6 +28,7 @@ export interface PaymentEmailContext {
 export interface PaymentReminderContext {
   brideName: string;
   brideEmail: string;
+  currency: string;
   payments: Array<{
     amount: number;
     label: string;

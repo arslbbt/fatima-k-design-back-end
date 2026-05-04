@@ -92,7 +92,7 @@ export class TwilioService implements ISmsService {
 
   async sendPaymentRequest(ctx: PaymentSmsContext): Promise<void> {
     const amount = Number(ctx.amount);
-    let message = `Hi ${ctx.brideName}, you have a new payment due for ${ctx.label}: $${amount.toLocaleString()}`;
+    let message = `Hi ${ctx.brideName}, you have a new payment due for ${ctx.label}: ${amount.toLocaleString()} ${ctx.currency}`;
 
     if (ctx.dueDate) {
       const dueDate = ctx.dueDate.toLocaleDateString('en-AU', {
@@ -109,7 +109,7 @@ export class TwilioService implements ISmsService {
   }
 
   async sendPaymentReminder(ctx: PaymentReminderSmsContext): Promise<void> {
-    const message = `Hi ${ctx.brideName}, payment reminder: You have ${ctx.paymentCount} pending payment${ctx.paymentCount > 1 ? 's' : ''} totaling $${ctx.totalAmount.toLocaleString()}. Please check your portal to complete payment. - Fatima K Design`;
+    const message = `Hi ${ctx.brideName}, payment reminder: You have ${ctx.paymentCount} pending payment${ctx.paymentCount > 1 ? 's' : ''} totaling ${ctx.totalAmount.toLocaleString()} ${ctx.currency}. Please check your portal to complete payment. - Fatima K Design`;
     await this.send(ctx.bridePhone, message);
   }
 

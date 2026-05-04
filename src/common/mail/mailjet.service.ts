@@ -185,6 +185,7 @@ export class MailjetService implements IMailService {
       brideName: ctx.brideName,
       label: ctx.label,
       amount,
+      currency: ctx.currency,
       dueDate: ctx.dueDate,
       paymentUrl: ctx.paymentUrl,
     });
@@ -215,7 +216,7 @@ export class MailjetService implements IMailService {
                 <p style="margin:0;color:#888;font-size:13px;">Due: ${p.dueDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Australia/Sydney' })}</p>
               </td>
               <td style="width:30%;text-align:right;">
-                <p style="margin:0;color:#D4A373;font-size:18px;font-weight:600;">$${amount.toLocaleString()}</p>
+                <p style="margin:0;color:#D4A373;font-size:18px;font-weight:600;">${amount.toLocaleString()} ${ctx.currency}</p>
               </td>
             </tr>
           </table>
@@ -253,7 +254,7 @@ export class MailjetService implements IMailService {
                         <p style="margin:0;color:#2C2C2C;font-size:16px;font-weight:600;">Total Due</p>
                       </td>
                       <td style="width:30%;text-align:right;">
-                        <p style="margin:0;color:#D4A373;font-size:22px;font-weight:700;">$${totalAmount.toLocaleString()}</p>
+                        <p style="margin:0;color:#D4A373;font-size:22px;font-weight:700;">${totalAmount.toLocaleString()} ${ctx.currency}</p>
                       </td>
                     </tr>
                   </table>
@@ -376,10 +377,11 @@ export class MailjetService implements IMailService {
     brideName: string;
     label: string;
     amount: number;
+    currency: string;
     dueDate: Date | null;
     paymentUrl: string;
   }): string {
-    const { brideName, label, amount, dueDate, paymentUrl } = opts;
+    const { brideName, label, amount, currency, dueDate, paymentUrl } = opts;
     const dueDateStr = dueDate
       ? dueDate.toLocaleDateString('en-AU', {
           day: 'numeric',
@@ -420,7 +422,7 @@ export class MailjetService implements IMailService {
                     <tr>
                       <td style="padding:12px 0;border-bottom:1px solid #F0EBE4;">
                         <p style="margin:0;color:#888;font-size:12px;">Amount</p>
-                        <p style="margin:4px 0 0;color:#D4A373;font-size:22px;font-weight:700;">$${amount.toLocaleString()}</p>
+                        <p style="margin:4px 0 0;color:#D4A373;font-size:22px;font-weight:700;">${amount.toLocaleString()} ${currency}</p>
                       </td>
                     </tr>
                     <tr>

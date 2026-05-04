@@ -94,6 +94,7 @@ export class PaymentsService {
           brideEmail: bride.email,
           bridePhone: bride.brideProfile?.phone,
           amount: dto.amount,
+          currency: brideCurrency,
           label: this.getPaymentLabel(dto.paymentType),
           dueDate: dto.dueDate ? new Date(dto.dueDate) : new Date(),
           paymentUrl: portalUrl,
@@ -201,6 +202,7 @@ export class PaymentsService {
           brideEmail: payment.bride.email,
           bridePhone: payment.bride.brideProfile?.phone,
           amount: data.amount ?? Number(payment.amount),
+          currency: payment.bride.brideProfile?.currency || 'AUD',
           label: this.getPaymentLabel(payment.paymentType),
           dueDate: data.dueDate ? new Date(data.dueDate) : payment.dueDate,
           paymentUrl: portalUrl,
@@ -253,6 +255,7 @@ export class PaymentsService {
         brideName: bride.name,
         brideEmail: bride.email,
         bridePhone: bride.brideProfile?.phone,
+        currency: bride.brideProfile?.currency || 'AUD',
         payments: unpaidPayments,
         paymentUrl: portalUrl,
       });

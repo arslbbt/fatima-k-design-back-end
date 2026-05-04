@@ -12,6 +12,7 @@ export interface PaymentSmsContext {
   brideName: string;
   bridePhone: string;
   amount: number;
+  currency: string;
   label: string;
   dueDate: Date | null;
 }
@@ -20,6 +21,7 @@ export interface PaymentReminderSmsContext {
   brideName: string;
   bridePhone: string;
   totalAmount: number;
+  currency: string;
   paymentCount: number;
 }
 

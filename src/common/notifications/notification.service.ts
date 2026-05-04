@@ -27,6 +27,7 @@ export interface PaymentNotificationContext {
   brideEmail: string;
   bridePhone?: string | null;
   amount: number;
+  currency: string;
   label: string;
   dueDate: Date | null;
   paymentUrl: string;
@@ -36,6 +37,7 @@ export interface PaymentReminderNotificationContext {
   brideName: string;
   brideEmail: string;
   bridePhone?: string | null;
+  currency: string;
   payments: Array<{
     amount: number;
     label: string;
@@ -154,6 +156,7 @@ export class NotificationService {
             brideName: ctx.brideName,
             bridePhone: ctx.bridePhone,
             amount: ctx.amount,
+            currency: ctx.currency,
             label: ctx.label,
             dueDate: ctx.dueDate,
           })
@@ -178,6 +181,7 @@ export class NotificationService {
             brideName: ctx.brideName,
             bridePhone: ctx.bridePhone,
             totalAmount,
+            currency: ctx.currency,
             paymentCount: ctx.payments.length,
           })
         : Promise.resolve(),

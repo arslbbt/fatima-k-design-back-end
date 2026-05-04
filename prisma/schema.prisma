@@ -103,6 +103,7 @@ model BrideProfile {
   stylePreferences String?    @map("style_preferences")
   notes            String?
   totalGownAmount  Decimal?   @db.Decimal(10, 2) @map("total_gown_amount")
+  totalGownAmountInAUD Decimal? @db.Decimal(10, 2) @map("total_gown_amount_in_aud")
   stage            BrideStage @default(CONSULTATION)
   country          String     @default("Australia")
   currency         String     @default("AUD")

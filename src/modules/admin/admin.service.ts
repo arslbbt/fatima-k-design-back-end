@@ -94,6 +94,23 @@ export class AdminService {
     const countryCode = dto.country || 'AU'; // Default to Australia
     const currency = this.currencyService.getCurrencyByCountryCode(countryCode);
 
+    // Convert totalGownAmount to AUD if provided
+    let totalGownAmountInAUD: number | null = null;
+    if (dto.totalGownAmount) {
+      try {
+        const converted = await this.currencyService.convertToAUD(
+          dto.totalGownAmount,
+          currency,
+        );
+        totalGownAmountInAUD = converted.amountInAUD;
+      } catch (err) {
+        this.logger.warn(
+          `Failed to convert totalGownAmount to AUD for new bride`,
+        );
+        // Continue without conversion - will be null
+      }
+    }
+
     // Create bride with profile
     const user = await this.prisma.user.create({
       data: {
@@ -110,6 +127,7 @@ export class AdminService {
             venueName: dto.venueName ?? null,
             notes: dto.notes ?? null,
             totalGownAmount: dto.totalGownAmount ?? null,
+            totalGownAmountInAUD: totalGownAmountInAUD,
             country: countryCode,
             currency: currency,
           },
@@ -218,13 +236,66 @@ export class AdminService {
       profileData.partnerName = dto.partnerName;
     if (dto.venueName !== undefined) profileData.venueName = dto.venueName;
     if (dto.notes !== undefined) profileData.notes = dto.notes;
-    if (dto.totalGownAmount !== undefined)
+
+    // Handle totalGownAmount update with AUD conversion
+    if (dto.totalGownAmount !== undefined) {
       profileData.totalGownAmount = dto.totalGownAmount;
+
+      // Convert to AUD if totalGownAmount is provided
+      if (dto.totalGownAmount) {
+        const currency = dto.country
+          ? this.currencyService.getCurrencyByCountryCode(dto.country)
+          : bride.brideProfile?.currency || 'AUD';
+
+        this.logger.log(
+          `Converting totalGownAmount ${dto.totalGownAmount} ${currency} to AUD for bride ${id}`,
+        );
+
+        try {
+          const converted = await this.currencyService.convertToAUD(
+            Number(dto.totalGownAmount),
+            currency,
+          );
+          profileData.totalGownAmountInAUD = converted.amountInAUD;
+          this.logger.log(
+            `Converted amount: ${converted.amountInAUD} AUD (rate: ${converted.exchangeRate})`,
+          );
+        } catch (err) {
+          this.logger.error(
+            `Failed to convert totalGownAmount to AUD for bride ${id}`,
+            err,
+          );
+          // Set to null if conversion fails
+          profileData.totalGownAmountInAUD = null;
+        }
+      } else {
+        // If totalGownAmount is cleared, clear the AUD amount too
+        profileData.totalGownAmountInAUD = null;
+      }
+    }
+
     if (dto.country !== undefined) {
       profileData.country = dto.country;
-      profileData.currency = this.currencyService.getCurrencyByCountryCode(
+      const newCurrency = this.currencyService.getCurrencyByCountryCode(
         dto.country,
       );
+      profileData.currency = newCurrency;
+
+      // If country changes and totalGownAmount exists, recalculate AUD amount
+      if (bride.brideProfile?.totalGownAmount) {
+        try {
+          const converted = await this.currencyService.convertToAUD(
+            Number(bride.brideProfile.totalGownAmount),
+            newCurrency,
+          );
+          profileData.totalGownAmountInAUD = converted.amountInAUD;
+        } catch (err) {
+          this.logger.warn(
+            `Failed to convert totalGownAmount to AUD after country change for bride ${id}`,
+          );
+          profileData.totalGownAmountInAUD = null;
+        }
+      }
     }
 
     // Update user and profile
@@ -408,7 +479,11 @@ export class AdminService {
       select: {
         id: true,
         brideProfile: {
-          select: { totalGownAmount: true, currency: true },
+          select: {
+            totalGownAmount: true,
+            totalGownAmountInAUD: true,
+            currency: true,
+          },
         },
         payments: {
           select: { amount: true, amountInAUD: true, status: true },
@@ -428,23 +503,10 @@ export class AdminService {
           .filter((p) => p.status === 'PAID')
           .reduce((sum, p) => sum + Number(p.amountInAUD), 0);
 
-        // Convert totalGownAmount to AUD
-        const brideCurrency = bride.brideProfile.currency || 'AUD';
-        let totalGownAmountInAUD = Number(bride.brideProfile.totalGownAmount);
-
-        if (brideCurrency !== 'AUD') {
-          try {
-            const converted = await this.currencyService.convertToAUD(
-              totalGownAmountInAUD,
-              brideCurrency,
-            );
-            totalGownAmountInAUD = converted.amountInAUD;
-          } catch (err) {
-            this.logger.warn(
-              `Failed to convert totalGownAmount for bride ${bride.id}`,
-            );
-          }
-        }
+        // Use pre-converted totalGownAmountInAUD if available
+        const totalGownAmountInAUD = bride.brideProfile.totalGownAmountInAUD
+          ? Number(bride.brideProfile.totalGownAmountInAUD)
+          : Number(bride.brideProfile.totalGownAmount); // Fallback for old data
 
         brideOutstanding = totalGownAmountInAUD - totalPaid;
         brideOutstanding = Math.max(0, brideOutstanding);

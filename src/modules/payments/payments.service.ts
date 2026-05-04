@@ -347,7 +347,13 @@ export class PaymentsService {
       where: { role: 'BRIDE' },
       select: {
         id: true,
-        brideProfile: { select: { totalGownAmount: true, currency: true } },
+        brideProfile: {
+          select: {
+            totalGownAmount: true,
+            totalGownAmountInAUD: true,
+            currency: true,
+          },
+        },
         payments: {
           select: {
             amountInAUD: true,
@@ -368,23 +374,10 @@ export class PaymentsService {
           .filter((p) => p.status === 'PAID')
           .reduce((sum, p) => sum + Number(p.amountInAUD), 0);
 
-        // Convert totalGownAmount to AUD
-        const brideCurrency = bride.brideProfile.currency || 'AUD';
-        let totalGownAmountInAUD = Number(bride.brideProfile.totalGownAmount);
-
-        if (brideCurrency !== 'AUD') {
-          try {
-            const converted = await this.currencyService.convertToAUD(
-              totalGownAmountInAUD,
-              brideCurrency,
-            );
-            totalGownAmountInAUD = converted.amountInAUD;
-          } catch (err) {
-            this.logger.warn(
-              `Failed to convert totalGownAmount for bride ${bride.id}, using original amount`,
-            );
-          }
-        }
+        // Use pre-converted totalGownAmountInAUD if available
+        const totalGownAmountInAUD = bride.brideProfile.totalGownAmountInAUD
+          ? Number(bride.brideProfile.totalGownAmountInAUD)
+          : Number(bride.brideProfile.totalGownAmount); // Fallback for old data
 
         brideOutstanding = totalGownAmountInAUD - totalPaid;
         brideOutstanding = Math.max(0, brideOutstanding);
